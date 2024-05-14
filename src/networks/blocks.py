@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -118,3 +119,14 @@ class ResidualBlockTranspose1d(ResidualBlock):
     def __init__(self, block, in_channels, out_channels, input_shape, output_shape, activation=nn.Identity()):
         shortcut = ResidualBlock.shortcut_conv_transpose_1d(in_channels, out_channels, input_shape, output_shape)
         super(ResidualBlockTranspose1d, self).__init__(shortcut, block, activation)
+
+
+class Shape(nn.Module):
+    def __init__(self, text='Shape'):
+        super(Shape, self).__init__()
+        self.text = text
+
+    def forward(self, x):
+        with torch.no_grad():
+            print(f'{self.text}: {list(x.shape)}')
+            return x
