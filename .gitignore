@@ -170,3 +170,13 @@ processed/
 interim/
 external/
 temp/
+*.zip
+*.tar
+*.gz
+*.7z
+*.rar
+*.csv
+*.xls
+*.xlsx
+*.db
+*.dbf
