@@ -1,97 +1,85 @@
-def calculate_output_size(input_size, kernel_size, stride, padding):
+from collections.abc import Iterable
+
+
+def assure_iterable(arg):
+    return arg if isinstance(arg, Iterable) else (arg, arg)
+
+
+def conv_out(input_size, kernel_size, stride, padding):
     return (input_size - kernel_size + 2 * padding) // stride + 1
 
 
-def calculate_output_size_transpose(input_size, kernel_size, stride, padding):
+def conv_out_transpose(input_size, kernel_size, stride, padding):
     return (input_size - 1) * stride - 2 * padding + kernel_size
 
 
-def calculate_padding_transpose(output_size, input_size, kernel_size, stride):
-    return ((input_size - 1) * stride - output_size + kernel_size) // 2
+def conv_kernel(input_size, output_size, stride, padding):
+    kernel = input_size - (output_size - 1) * stride + 2 * padding
+    if kernel < 1:
+        raise ValueError('Invalid input parameters.')
+    return kernel
 
 
-def calculate_output_size_rectangular(func, input_size, kernel_size, stride, padding):
-    output = []
-    if isinstance(kernel_size, int):
-        kernel_size = (kernel_size, kernel_size)
-    if isinstance(input_size, int):
-        input_size = (input_size, input_size)
-    if isinstance(padding, int):
-        padding = (padding, padding)
-    if isinstance(stride, int):
-        stride = (stride, stride)
-
-    for i in range(2):
-        output.append(func(input_size[i], kernel_size[i], stride[i], padding[i]))
-    return output
+def conv_kernel_transpose(input_size, output_size, stride, padding):
+    return conv_kernel(output_size, input_size, stride, padding)
 
 
-def convolutional_output(input_size, kernel_size, stride, padding):
-    return calculate_output_size_rectangular(calculate_output_size, input_size, kernel_size, stride, padding)
+def atleast_2d(func):
+    def wrapper(*args):
+        args_2d = [assure_iterable(arg) for arg in args]
+        lengths = [len(arg_2d) for arg_2d in args_2d]
+        if len(set(lengths)) != 1:
+            raise ValueError('All arguments must have the same length.')
 
-def convolutional_output_transpose(input_size, kernel_size, stride, padding):
-    return calculate_output_size_rectangular(calculate_output_size_transpose, input_size, kernel_size, stride, padding)
+        inputs = tuple(zip(*args_2d))
+        results = tuple(func(*input) for input in inputs)
 
-def convolutional_padding_transpose(output_size, input_size, kernel_size, stride):
-    return calculate_output_size_rectangular(calculate_padding_transpose, output_size, input_size, kernel_size, stride)
+        if isinstance(results[0], Iterable):
+            return tuple(zip(*results))
+        else:
+            return results
 
-
-
-def repeated(func):
-    def wrapper(*args, num_layers):
-        input_shape = args[0]
-        for i in range(num_layers):
-            input_shape = func(input_shape, *args[1:])
-        return input_shape
     return wrapper
 
 
-@repeated
-def convolutional_output_repeated(input_size, kernel_size, stride, padding):
-    return convolutional_output(input_size, kernel_size, stride, padding)
-
-@repeated
-def convolutional_output_transpose_repeated(input_size, kernel_size, stride, padding):
-    return convolutional_output_transpose(input_size, kernel_size, stride, padding)
+conv_output_2d = atleast_2d(conv_out)
+conv_output_transpose_2d = atleast_2d(conv_out_transpose)
 
 
-def check_2d(shape):
-    if isinstance(shape, int):
-        return (shape, shape)
-    elif isinstance(shape, tuple) and len(shape) == 2:
-        return shape
-    elif isinstance(shape, list) and len(shape) == 2:
-        return shape
-    else:
-        raise ValueError('Shape must be an integer or a tuple or list of length 2.')
+def recursive_apply(func):
+    def wrapper(*args, num_reps=1, which=0, **kwargs):
+        """recursively apply a function to the output of the previous function
+        specified by which"""
+        new_value = func(*args, **kwargs)
+        if num_reps == 1:
+            return new_value
+        else:
+            new_args = list(args)
+            new_args[which] = new_value
+            return wrapper(*new_args, num_reps=num_reps - 1, **kwargs)
 
-def test_conv_params(in_size, out_size, kernel_size, stride, padding):
-    out = np.floor((in_size - kernel_size + 2*padding)/stride) + 1
-    assert(out == out_size)
-
-def get_stride_padding(in_shape, out_shape, kernel_size):
-    in_shape = check_2d(in_shape)
-    out_shape = check_2d(out_shape)
-    kernel_size = check_2d(kernel_size)
-    strides = []
-    paddings = []
-    for i in range(2):
-        strides.append(in_shape[i]//out_shape[i])
+    return wrapper
 
 
-        paddings.append(pad)
-        strides.append(stride)
+@recursive_apply
+def conv_out_repeated(input_size, kernel_size, stride, padding, num_reps=1, which=0):
+    return conv_out(input_size, kernel_size, stride, padding)
 
-    return strides, paddings
 
-def get_padding(out_shape, in_shape, kernel_size, stride):
-    return ((out_shape - 1) * stride + kernel_size - in_shape) // 2 + 1
+@recursive_apply
+def conv_out_repeated_2d(input_size, kernel_size, stride, padding, num_reps=1, which=0):
+    return conv_output_2d(input_size, kernel_size, stride, padding)
 
-def get_output(in_shape, kernel_size, stride, padding):
-    return (in_shape - kernel_size + 2*padding) // stride + 1
 
-if __name__=="__main__":
+@recursive_apply
+def conv_out_transpose_repeated(input_size, kernel_size, stride, padding, num_reps=1, which=0):
+    return conv_out_transpose(input_size, kernel_size, stride, padding)
 
-    output = convolutional_output_repeated((100, 100), (3, 10),2, 1, num_layers=3)
-    print(output)
 
+@recursive_apply
+def conv_out_transpose_repeated_2d(input_size, kernel_size, stride, padding, num_reps=1, which=0):
+    return conv_output_transpose_2d(input_size, kernel_size, stride, padding)
+
+
+if __name__ == "__main__":
+    pass
