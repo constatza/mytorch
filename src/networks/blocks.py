@@ -59,7 +59,7 @@ class ResidualBlock(nn.Module):
 
     @staticmethod
     def shortcut_conv_transpose_1d(in_channels, out_channels, input_shape, output_shape):
-        if in_channels != out_channels:
+        if input_shape != output_shape:
             stride = output_shape // input_shape
             kernel_size = output_shape - (input_shape - 1) * stride
             padding = 0

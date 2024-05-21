@@ -101,6 +101,8 @@ def training_autoencoder(model, x_train, x_val, optimizer, criterion=nn.MSELoss(
 def format_data(solutions_path, dofs_to_keep_path):
     """Import the data from the path and keep only the dofs specified."""
     # Load the dofs to keep
+    import os
+    dirname = os.path.dirname(solutions_path)
     solutions = np.load(solutions_path).T
     # dofs to keep
     dofs = np.loadtxt(dofs_to_keep_path).astype(int)
@@ -109,8 +111,13 @@ def format_data(solutions_path, dofs_to_keep_path):
     solutions = solutions[:, :, :-8]
     solutions = solutions[:, dofs, :]
     solutions = solutions[:, np.newaxis, :, :]
-    np.save('../data/solutions/formatted_solutions.npy', solutions)
-    torch.save(solutions, '../data/solutions/formatted_solutions.pt')
-
+    np.save(os.path.join(dirname, 'formatted_solutions.npy'), solutions)
     print(solutions.shape)
     return solutions
+
+
+if __name__ == "__main__":
+    # load data
+    solutions_path = '../data/solutions500/porousSolutions.npy'
+    dofs_to_keep_path = '../data/dofs/pInnerRemainderfacedofs.txt'
+    dataset = format_data(solutions_path, dofs_to_keep_path)

@@ -5,19 +5,23 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3990ad05-9c4d-4a75-9970-162c0d78f52d" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/bio.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/blocks.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/caes.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/experiment.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/postprocessing.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/preprocessing.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/visualization.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/parsers.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/test_parsers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/experiment.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiment.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/networks/blocks.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/networks/blocks.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/networks/caes/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/networks/caes/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/networks/caes/cae1d.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/networks/caes/cae1d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/networks/caes/cae2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/networks/caes/cae2d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/networks/decoders/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/networks/decoders/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/networks/decoders/decoders1d.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/networks/decoders/decoders1d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/networks/encoders/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/networks/encoders/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/networks/encoders/encoders1d.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/networks/encoders/encoders1d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/preprocessing.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/preprocessing.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/visualization.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/visualization.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -31,8 +35,19 @@
       </list>
     </option>
   </component>
+  <component name="FormatOnSaveOptions">
+    <option name="myRunOnSave" value="true" />
+  </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="OptimizeOnSaveOptions">
+    <option name="myRunOnSave" value="true" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
@@ -45,21 +60,44 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Python tests.pytest in test_parsers.py.executor": "Debug",
+    "Python tests.pytest in test_utils.py.executor": "Run",
+    "Python.__init__.executor": "Run",
+    "Python.cae.executor": "Run",
+    "Python.cae1d.executor": "Run",
+    "Python.cae2d.executor": "Run",
+    "Python.caes.executor": "Run",
+    "Python.decoders.executor": "Run",
+    "Python.decoders1d.executor": "Run",
+    "Python.encoders1d.executor": "Run",
     "Python.experiment.executor": "Run",
     "Python.models.executor": "Run",
+    "Python.parsers.executor": "Debug",
+    "Python.postprocessing.executor": "Run",
     "Python.preprocessing.executor": "Run",
+    "Python.test_utils.executor": "Run",
     "Python.train.executor": "Run",
     "Python.utils.executor": "Run",
+    "Python.visualization.executor": "Debug",
     "Python.visualize.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "develop",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/cluster/constantinos/bio/experiment.py",
-    "settings.editor.selected.configurable": "preferences.pluginManager"
+    "last_opened_file_path": "C:/Users/cluster/constantinos/mytorch/tests/test_parsers.py",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable"
   }
 }]]></component>
-  <component name="RunManager" selected="Python.train">
-    <configuration name="train" type="PythonConfigurationType" factoryName="Python">
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\cluster\constantinos\mytorch\src\networks\encoders" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\cluster\constantinos\mytorch\src\networks\encoders" />
+      <recent name="C:\Users\cluster\constantinos\mytorch\src\networks" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="experiment" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="bio" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -68,12 +106,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.10 (bio)" />
-      <option name="WORKING_DIRECTORY" value="" />
+      <option name="SDK_NAME" value="Python 3.9 (mytorch)" />
+      <option name="WORKING_DIRECTORY" value="C:\Users\cluster\constantinos\mytorch\src" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/experiment.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/experiment.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -82,7 +120,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="visualize" type="PythonConfigurationType" factoryName="Python">
+    <configuration name="visualization" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="bio" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -91,29 +129,49 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.10 (bio)" />
-      <option name="WORKING_DIRECTORY" value="" />
+      <option name="SDK_NAME" value="Python 3.9 (mytorch)" />
+      <option name="WORKING_DIRECTORY" value="C:\Users\cluster\constantinos\mytorch\src" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/visualization.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/visualization.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
       <option name="REDIRECT_INPUT" value="false" />
       <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="pytest in test_parsers.py" type="tests" factoryName="py.test" nameIsGenerated="true">
+      <module name="bio" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.9 (mytorch)" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_keywords" value="&quot;&quot;" />
+      <option name="_new_parameters" value="&quot;&quot;" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;C:\\Users\\cluster\\constantinos\\mytorch\\tests\\test_parsers.py&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.visualize" />
-      <item itemvalue="Python.train" />
+      <item itemvalue="Python.experiment" />
+      <item itemvalue="Python.visualization" />
+      <item itemvalue="Python tests.pytest in test_utils.py" />
+      <item itemvalue="Python tests.pytest in test_parsers.py" />
     </list>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-0509580d9d50-746f403e7f0c-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-241.14494.241" />
+        <option value="bundled-python-sdk-babbdf50b680-746f403e7f0c-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-241.15989.155" />
       </set>
     </attachedChunks>
   </component>
@@ -133,10 +191,68 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="develop" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
     </option>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/utils.py</url>
+          <line>119</line>
+          <option name="timeStamp" value="7" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/networks/decoders/decoders1d.py</url>
+          <line>91</line>
+          <option name="timeStamp" value="15" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/networks/decoders/decoders1d.py</url>
+          <line>74</line>
+          <option name="timeStamp" value="17" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/networks/decoders/decoders1d.py</url>
+          <line>154</line>
+          <option name="timeStamp" value="22" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/networks/encoders/encoders1d.py</url>
+          <line>120</line>
+          <option name="timeStamp" value="23" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/visualization.py</url>
+          <line>30</line>
+          <option name="timeStamp" value="24" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/parsers.py</url>
+          <line>69</line>
+          <option name="timeStamp" value="35" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/parsers.py</url>
+          <line>83</line>
+          <option name="timeStamp" value="36" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

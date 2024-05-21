@@ -1,1 +1,2 @@
-from base import *
+from .decoders1d import *
+from .decoders2d import *

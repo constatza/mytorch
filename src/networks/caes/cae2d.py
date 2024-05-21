@@ -1,4 +1,6 @@
-from base import CAE
+from torch import nn
+
+from .base import CAE
 from ..decoders import ConvolutionalDecoder
 from ..encoders import ConvolutionalEncoder
 

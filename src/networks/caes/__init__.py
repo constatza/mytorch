@@ -1,2 +1,3 @@
-from base import CAE
-from unet import UNet
+from .cae1d import *
+from .cae2d import *
+from .unet import UNet

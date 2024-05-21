@@ -3,6 +3,7 @@ from utils import atleast_2d, recursive_apply
 from utils import conv_out, conv_out_repeated, conv_out_repeated_2d
 from utils import conv_out_transpose, conv_out_transpose
 from utils import conv_kernel, conv_kernel_transpose
+from utils import conv_out_vect, conv_out_transpose_vect
 
 @pytest.mark.parametrize('args',[
     (10, 3, 2, 1, 5),
@@ -77,3 +78,10 @@ def test_conv_output_repeated(args, expected_output):
 def test_conv_output_repeated_2d():
     input_size, kernel_size, stride, padding, num_reps = 100, 3, 1, 1, 1
     assert conv_out_repeated_2d(input_size, kernel_size, stride, padding, num_reps=num_reps) == (100, 100)
+
+
+def test_conv_out_vect():
+    padding = [1, 1, 0]
+    kernel =  [3, 3, 3]
+    assert conv_out_vect(10, kernel, 1, padding, which=0) == (10, 10, 8)
+
