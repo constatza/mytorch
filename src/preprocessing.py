@@ -1,9 +1,6 @@
 import numpy as np
-import torch
-import torch.nn as nn
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from torch.utils.data import DataLoader
 
 
 def reshaper(func):
@@ -42,60 +39,6 @@ def split_data(dataset, *args, **kwargs):
     """Split the data into training and testing sets."""
     # Split data
     return train_test_split(dataset, *args, **kwargs)
-
-
-def create_dataloaders(*data, batch_size=32):
-    """Create dataloaders from the data."""
-    dataloaders = []
-    for datum in data:
-        if not isinstance(datum, torch.Tensor):
-            raise ValueError('Data must be torch tensors.')
-        else:
-            dataloaders.append(DataLoader(datum, batch_size=batch_size, shuffle=True))
-    return dataloaders
-
-
-def training_autoencoder(model, x_train, x_val, optimizer, criterion=nn.MSELoss(), num_epochs=100, batch_size=32):
-    """Training loop for the model with both training and validation loss."""
-    # use the GPU if available
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Using {device} for training.')
-
-    # Create dataloaders
-    dataloader_train, dataloader_val = create_dataloaders(x_train, x_val, batch_size=batch_size)
-
-    # Initialize lists to store training and validation losses
-    train_losses = []
-    val_losses = []
-    model.to(device)
-    for epoch in range(num_epochs):
-        # Training
-        model.train()
-        train_loss = 0
-        for data in dataloader_train:
-            data = data.to(device)
-            optimizer.zero_grad()
-            recon = model(data)
-            loss = criterion(recon, data)
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
-        train_losses.append(train_loss / len(dataloader_train))
-
-        # Validation
-        model.eval()
-        val_loss = 0
-        with torch.no_grad():
-            for data in dataloader_val:
-                data = data.to(device)
-                recon = model(data)
-                loss = criterion(recon, data)
-                val_loss += loss.item()
-            val_losses.append(val_loss / len(dataloader_val))
-        # print with scientific notation and 6 decimal places
-        print(f'Epoch {epoch + 1}/{num_epochs} | Train Loss: {train_losses[-1]:.6e} | Val Loss: {val_losses[-1]:.6e}')
-
-    return train_losses, val_losses
 
 
 def format_data(solutions_path, dofs_to_keep_path):

@@ -39,7 +39,8 @@ class CAE1dFixed2(CAE):
 
 class CAE1dLinear(CAE1d):
     def __init__(self, input_shape, num_layers=4):
-        self.input_shape = input_shape
+        print(input_shape)
+        self.input_shape = input_shape[-2:]
         encoder, decoder = self.create_encoder_decoder(input_shape, num_layers)
         super(CAE1dLinear, self).__init__(encoder, decoder)
 

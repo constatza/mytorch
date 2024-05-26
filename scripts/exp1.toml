@@ -1,0 +1,25 @@
+name = "experiment1"
+description = "This is a test experiment"
+
+[model]
+
+networks = ["caes.CAE1dLinear"]
+encoded-size = [200, 400, 600, 1000]
+num-layers = [4, 6, 8]
+
+[training]
+batch-size = [32, 64]
+learning-rate = [5e-4, 1e-4, 1e-5]
+num-epochs = [200, 500, 1000, 5000, 10000]
+
+[paths.input]
+solutions = "./formatted_solutions.npy"
+root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\solutions500\\"
+x-train = "./x_train.npy"
+x-test = "./x_test.npy"
+
+[paths.output]
+root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\output\\{name}\\"
+img = "./img/"
+models = "./models/"
+parameters = "./parameters/"

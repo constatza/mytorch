@@ -18,3 +18,7 @@ def parser():
 def test_format_variables_in_fstrings(parser):
     assert parser.config['model']['path'] == 'TestModel/path'
     assert parser.config['data']['file'] == 'data/file'
+
+def test_attributes_workins(parser):
+    assert isinstance(parser.data, TOMLParser)
+    assert parser.model.name == 'TestModel'

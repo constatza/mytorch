@@ -1,3 +1,4 @@
+import os
 import re
 from abc import ABC, abstractmethod
 
@@ -15,40 +16,37 @@ class Parser(ABC):
             self.config = config
         else:
             raise TypeError('config must be either a file path (str) or a dictionary (dict)')
+        self.join_root_with_paths()
+        self.replace_placeholders_in_dict(self.config)
+
+    def __getitem__(self, key):
+        key = key.replace('_', '-')
+        return self.config.get(key)
+
+    def __repr__(self):
+        return str(self.config)
 
     @abstractmethod
     def parse(self, file):
         """Parses a configuration file."""
         pass
 
-    def get(self, name):
-        # convert _ to - in the name
-        name = name.replace('_', '-')
+    def join_root_with_paths(self):
+        """Joins the root path with the paths in the configuration file.
+        For every key==root under 'paths' dict, the value is joined with the other string paths in the dictionary."""
+        # search every subdict for the root key
+        paths = self.config.get('paths')
+
         try:
-            return self.config[name]
-        except KeyError:
-            raise AttributeError(f"Attribute {name} not found in configuration file.")
-
-
-class TOMLParser(Parser):
-    """Parser for TOML configuration files."""
-
-    def __init__(self, config):
-        super().__init__(config)
-        self.replace_placeholders_in_dict(self.config)
-
-    def parse(self, file):
-        self.config = tomli.load(file)
-
-    def join_dirs_with_file(self):
-        """Joins directories with files in the configuration file.
-        Dirs end with a slash, files don't.
-        """
-        for key, value in self.config.items():
-            if isinstance(value, dict):
-                self.config[key] = TOMLParser.from_dict(value)
-            elif isinstance(value, str):
-                self.config[key] = self.join_dir_with_file(value)
+            for subdictname, subdict in paths.items():
+                if 'root' in subdict:
+                    root = subdict['root']
+                    for key, value in subdict.items():
+                        if key != 'root':
+                            subdict[key] = os.path.join(root, value)
+                    set_nested_dict_value(paths, [subdictname], subdict)
+        except AttributeError:
+            pass
 
     def replace_placeholders_in_dict(self, d, keys=None):
         if keys is None:
@@ -77,6 +75,16 @@ class TOMLParser(Parser):
                                 set_nested_dict_value(d, new_keys + [i], item)
                     elif isinstance(item, dict):
                         self.replace_placeholders_in_dict(item, new_keys + [i])
+
+
+class TOMLParser(Parser):
+    """Parser for TOML configuration files."""
+
+    def __init__(self, config):
+        super().__init__(config)
+
+    def parse(self, file):
+        self.config = tomli.load(file)
 
 
 def find_placeholders_in_fstring(fstring):
@@ -112,4 +120,4 @@ if __name__ == "__main__":
         }
     }
     parser = TOMLParser(config)
-    print(parser.config)
+    print(parser.model)
