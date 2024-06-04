@@ -1,0 +1,39 @@
+name = "p-problem"
+description = "pressures from porous media flow"
+variable = "P"
+
+[model]
+
+networks = ["caes.CAE1dLinear2"]
+#encoded-size = [200, 400, 600, 1000]
+num-layers = [4, 6, 8]
+
+[training]
+batch-size = [32]
+learning-rate = [1e-3, 1e-4]
+num-epochs = 10000
+
+[test]
+model = "CAE1dLinear2_0.pt"
+
+[paths.input]
+solutions = "./formatted_solutions.npy"
+root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{name}"
+x-train = "./x_train.pt"
+x-test = "./x_test.pt"
+means = "./means.pt"
+stds = "./stds.pt"
+dataset = "./dataset.pt"
+latent = "./latent.pt"
+
+[paths.output]
+root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\output\\{name}\\"
+img = "./img/"
+models = "./models/"
+parameters = "./parameters/"
+figures = "./figures/"
+
+[paths.raw]
+root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
+dofs = "./dofs/Pdofs.txt"
+data = "./solutions500/porousSolutions.npy"
