@@ -130,3 +130,46 @@ class Shape(nn.Module):
         with torch.no_grad():
             print(f'{self.text}: {list(x.shape)}')
             return x
+
+
+class StandardizedModel(nn.Module):
+    def __init__(self, base_model, scaler, normalize_in=False, denormalize_out=False):
+        super(StandardizedModel, self).__init__()
+        self.base_model = base_model
+        self.scaler = scaler
+        self.normalize_in = normalize_in
+        self.denormalize_out = denormalize_out
+
+    def forward(self, x):
+        if self.normalize_in:
+            x = self.scaler(x)
+        predictions = self.base_model(x).detach()
+
+        if self.denormalize_out:
+            predictions = self.inverse(predictions)
+
+        return predictions
+
+    def inverse(self, x):
+        return self.scaler.inverse(x)
+
+
+class StandardScaler(nn.Module):
+
+    def __init__(self, dataset=None, means=None, stds=None):
+        super(StandardScaler, self).__init__()
+        if means is None and dataset is not None:
+            self.means = torch.mean(dataset, dim=(0, -1), keepdim=True)
+        else:
+            self.means = means
+
+        if stds is None and dataset is not None:
+            self.stds = torch.std(dataset, dim=(0, -1), keepdim=True)
+        else:
+            self.stds = stds
+
+    def forward(self, x):
+        return (x - self.means) / self.stds
+
+    def inverse(self, x):
+        return x * self.stds + self.means
