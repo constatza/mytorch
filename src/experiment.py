@@ -1,15 +1,14 @@
 import importlib
 import inspect
 import os
+from collections.abc import Iterable
 from itertools import product
 
 import numpy as np
 import tomli_w as tw
 import torch
-from torch import nn
 from torch.utils.data import DataLoader
 
-from networks.caes import CAE1dLinear
 from parsers import TOMLParser
 
 
@@ -25,7 +24,8 @@ def filtered(func):
 @filtered
 class Experiment:
     def __init__(self, model=None, uid=None, x_train=None, x_test=None, y_train=None, y_test=None,
-                 optimizer=None, criterion=None, lr=None, batch_size=None, num_epochs=None):
+                 optimizer=None, criterion=None, lr=None, batch_size=None, num_epochs=None, checkpoint_dir=None,
+                 epoch_print_interval=10):
         self.name = model.__class__.__name__ + '_' + str(uid)
         self.model = model
         self.id = uid
@@ -38,74 +38,107 @@ class Experiment:
         self.lr = lr
         self.batch_size = batch_size
         self.num_epochs = num_epochs
-
-    def train(self):
-        train_loss, val_loss = training_autoencoder(self.model, self.x_train, self.x_test, optimizer=self.optimizer,
-                                                    criterion=self.criterion, batch_size=self.batch_size,
-                                                    num_epochs=self.num_epochs)
-        return train_loss, val_loss
+        self.checkpoint_relative_tol = 0.5
+        self.dataloader_train, self.dataloader_val = create_dataloaders(x_train, y_train, x_test, y_test, batch_size)
+        self.checkpoint_path = os.path.join(checkpoint_dir, self.name + '.pt')
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        self.epoch_print_interval = epoch_print_interval
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f'Using {self.device} for training.')
 
     def run(self, *args, **kwargs):
         return self.train(*args, **kwargs)
 
+    def train(self) -> tuple:
+        """Training loop for the model with both training and validation loss."""
+        # use the GPU if available
+        optimizer = self.optimizer
+        criterion = self.criterion
+        device = self.device
 
-def training_autoencoder(model=None, x_train=None, x_val=None, optimizer=None, criterion=nn.MSELoss(), num_epochs=None,
-                         batch_size=None, ) -> tuple:
-    """Training loop for the model with both training and validation loss."""
-    # use the GPU if available
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Using {device} for training.')
+        # Initialize lists to store training and validation losses
+        train_losses = []
+        val_losses = []
+        min_val_loss = float('inf')
+        self.model.to(device)
+        for epoch in range(self.num_epochs):
+            # Training
+            self.model.train()
+            train_loss = 0
+            for batch in self.dataloader_train:
 
-    # Create dataloaders
-    if not isinstance(x_train, torch.Tensor): x_train = torch.Tensor(x_train)
-    if not isinstance(x_val, torch.Tensor): x_val = torch.Tensor(x_val)
+                if len(batch) == 2:
+                    x_batch, y_batch = batch
+                else:
+                    x_batch = batch[0]
+                    y_batch = x_batch
+                x_batch = x_batch.to(device)
+                y_batch = y_batch.to(device)
 
-    print(batch_size)
-    dataloader_train, dataloader_val = create_dataloaders(x_train, x_val, batch_size=batch_size)
+                optimizer.zero_grad()
+                y_pred = self.model(x_batch)
+                loss = criterion(y_pred, y_batch)
+                loss.backward()
+                optimizer.step()
+                train_loss += loss.item()
+            train_losses.append(train_loss / len(self.dataloader_train))
 
-    # Initialize lists to store training and validation losses
-    train_losses = []
-    val_losses = []
-    model.to(device)
-    for epoch in range(num_epochs):
-        # Training
-        model.train()
-        train_loss = 0
-        for data in dataloader_train:
-            data = data.to(device)
-            optimizer.zero_grad()
-            recon = model(data)
-            loss = criterion(recon, data)
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
-        train_losses.append(train_loss / len(dataloader_train))
+            # Validation
+            val_loss = 0
+            self.model.eval()
+            with torch.no_grad():
+                for batch in self.dataloader_val:
+                    if len(batch) == 2:
+                        x_batch, y_batch = batch
+                    else:
+                        x_batch = batch[0]
+                        y_batch = x_batch
+                    x_batch = x_batch.to(device)
+                    y_batch = y_batch.to(device)
+                    loss_val = criterion(self.model(x_batch), y_batch)
+                    val_loss += loss_val.item()
+                val_losses.append(val_loss / len(self.dataloader_val))
+            # print with scientific notation and 6 decimal places
+            if (epoch + 1) % self.epoch_print_interval == 0:
+                print(
+                    f'Epoch {epoch + 1}/{self.num_epochs} | Train Loss: {train_losses[-1]:.6e} | Val Loss: {val_losses[-1]:.6e}')
 
-        # Validation
-        model.eval()
-        val_loss = 0
-        with torch.no_grad():
-            for data in dataloader_val:
-                data = data.to(device)
-                recon = model(data)
-                loss = criterion(recon, data)
-                val_loss += loss.item()
-            val_losses.append(val_loss / len(dataloader_val))
-        # print with scientific notation and 6 decimal places
-        print(f'Epoch {epoch + 1}/{num_epochs} | Train Loss: {train_losses[-1]:.6e} | Val Loss: {val_losses[-1]:.6e}')
+            # Check if the validation loss has decreased by more than the tolerance
+            if relative_tolerance(min_val_loss, val_losses) > self.checkpoint_relative_tol:
+                print('Checkpointing model...')
+                min_val_loss = val_losses[-1]
+                # Save the model state
+                best_model = torch.jit.script(self.model)
+                # Save the model state to a file
+                best_model.save(self.checkpoint_path)
 
-    return train_losses, val_losses
+        return train_losses, val_losses
 
 
-def create_dataloaders(*data, batch_size=32):
+def relative_tolerance(min_loss, losses):
+    if len(losses) > 5:
+        mean = np.mean(losses[-5:])
+    else:
+        mean = np.mean(losses)
+    return (min_loss - mean) / mean
+
+
+def create_dataloaders(x_train=None, y_train=None, x_test=None, y_test=None, batch_size=32):
     """Create dataloaders from the data."""
-    dataloaders = []
-    for datum in data:
-        if not isinstance(datum, torch.Tensor):
-            raise ValueError('Data must be torch tensors.')
-        else:
-            dataloaders.append(DataLoader(datum, batch_size=batch_size, shuffle=True))
-    return dataloaders
+    x_train = torch.tensor(x_train, dtype=torch.float32)
+    x_test = torch.tensor(x_test, dtype=torch.float32)
+    if y_train is not None:
+        y_train = torch.tensor(y_train, dtype=torch.float32)
+        y_test = torch.tensor(y_test, dtype=torch.float32)
+        train_dataset = torch.utils.data.TensorDataset(x_train, y_train)
+        val_dataset = torch.utils.data.TensorDataset(x_test, y_test)
+    else:
+        train_dataset = torch.utils.data.TensorDataset(x_train)
+        val_dataset = torch.utils.data.TensorDataset(x_test)
+
+    dataloader_train = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    dataloader_val = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    return dataloader_train, dataloader_val
 
 
 class Parameters:
@@ -114,6 +147,7 @@ class Parameters:
     def create_combinations(parameters: dict) -> tuple([dict]):
         new_keys = Parameters.substitute_keys(parameters.keys())
         values = list(parameters.values())
+        values = [tuple(x) if isinstance(x, Iterable) else (x,) for x in values]
         combinations = tuple(tuple(x) for x in product(*values))
         return {i: dict(zip(new_keys, x)) for i, x in enumerate(combinations)}
 
@@ -176,16 +210,22 @@ class Analysis:
         self.models_dict = {'model': [model for model in self.models]}
 
     def load_data(self):
-        self.model_parameters = parser['model']
-        self.training_parameters = parser['training']
-        self.optimizer = optimizer
-        self.criterion = criterion
-        self.x_train = np.load(parser['paths']['input']['x-train'])
-        self.x_test = np.load(parser['paths']['input']['x-test'])
+        self.model_parameters = self.parser['model']
+        self.training_parameters = self.parser['training']
+        x_train = self.parser['paths']['input']['x-train']
+        x_test = self.parser['paths']['input']['x-test']
+        if x_train.endswith('.npy'):
+            self.x_train = np.load(x_train)
+        else:
+            self.x_train = torch.load(x_train)
+        if x_test.endswith('.npy'):
+            self.x_test = np.load(x_test)
+        else:
+            self.x_test = torch.load(x_test)
         self.input_shape = self.x_train.shape[2:]
         try:
-            self.y_train = np.load(parser['paths']['input']['y-train'])
-            self.y_test = np.load(parser['paths']['input']['y-test'])
+            self.y_train = np.load(self.parser['paths']['input']['y-train'])
+            self.y_test = np.load(self.parser['paths']['input']['y-test'])
 
         except KeyError:
             self.y_train = None
@@ -197,7 +237,7 @@ class Analysis:
         for model_id, model_parameters in self.model_combinations.items():
             for train_id, training_parameters in self.training_combinations.items():
 
-                experiment_id = model_id + train_id
+                experiment_id = train_id + model_id * len(self.training_combinations)
                 if experiment_id not in self.experiments_ran:
                     # separate stdout line
                     print('-' * 80)
@@ -205,19 +245,20 @@ class Analysis:
                     model = model_parameters['model'](self.input_shape, **model_parameters)
                     experiment = Experiment(model, x_train=self.x_train, x_test=self.x_test,
                                             optimizer=self.optimizer, criterion=self.criterion, uid=experiment_id,
-                                            **training_parameters)
+                                            **training_parameters,
+                                            checkpoint_dir=self.parser['paths']['output']['models'])
                     # search parameters if experiment has already been run
 
                     try:
                         train_loss, val_loss = experiment.train()
                         losses.append(val_loss[-1])
-                        writer.log(f'Experiment {experiment_id} completed successfully.')
+                        writer.log(f'Experiment {experiment_id:d} completed successfully.')
                         writer.write(f'{experiment.name}.pt', model, dirname='models')
                         parameters = {**model_parameters, **training_parameters, 'id': experiment_id}
                         writer.write(f'{experiment.name}.toml', parameters, dirname='parameters')
                         writer.write(f'losses', val_loss[-1])
                     except Exception as e:
-                        print('Error: ', e)
+                        raise e
                         writer.error(f'Experiment {experiment_id} failed with error: {e}')
 
 
@@ -268,18 +309,3 @@ class Writer:
 
     def error(self, message):
         return self.write('error', message)
-
-
-# load data
-torch.seed()  # set seed
-
-config_path = os.path.join('..', 'scripts', 'exp1.toml')
-parser = TOMLParser(config_path)
-
-models = [CAE1dLinear]
-
-optimizer = torch.optim.Adam
-criterion = torch.nn.MSELoss()
-
-analysis = Analysis(parser, optimizer, criterion, new=True)
-analysis.run()
