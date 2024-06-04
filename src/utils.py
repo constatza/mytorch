@@ -1,6 +1,8 @@
 from collections.abc import Iterable
 from math import ceil
 
+import torch
+
 
 def assure_iterable(arg):
     return arg if isinstance(arg, Iterable) else (arg, arg)
@@ -128,6 +130,17 @@ def conv_out_transpose_repeated(input_size, kernel_size, stride, padding, num_re
 @recursive_apply
 def conv_out_transpose_repeated_2d(input_size, kernel_size, stride, padding, num_reps=1, which=0):
     return conv_output_transpose_2d(input_size, kernel_size, stride, padding)
+
+
+def to_tensor(func):
+    """Convert numpy array to tensor."""
+
+    def wrapper(*args, **kwargs):
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        new_args = tuple(torch.from_numpy(a).to(device) if not isinstance(a, torch.Tensor) else a for a in args)
+        return func(*new_args, **kwargs)
+
+    return wrapper
 
 
 if __name__ == "__main__":

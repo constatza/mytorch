@@ -1,6 +1,8 @@
 import numpy as np
+import torch
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+
+from utils import to_tensor
 
 
 def reshaper(func):
@@ -25,13 +27,24 @@ def reshaper(func):
     return wrapper
 
 
-@reshaper
-def scale_data(dataset, scaler=StandardScaler()):
+@to_tensor
+def scale_timeseries(dataset, means=None, stds=None):
     """Scale the data using a standard scaler."""
     # Scale data
-    scaler = StandardScaler()
-    dataset = scaler.fit_transform(dataset)
-    return dataset
+    # assuming dataset is of shape (num_samples, num_channels, num_features, num_timesteps)
+    if means is None:
+        means = torch.mean(dataset, dim=(0, -1), keepdim=True)
+    if stds is None:
+        stds = torch.std(dataset, dim=(0, -1), keepdim=True)
+
+    return (dataset - means) / stds, means, stds
+
+
+@to_tensor
+def unscale_timeseries(dataset, means, stds):
+    """Unscale the data using a standard scaler."""
+    # Unscale data
+    return dataset * stds + means
 
 
 @reshaper
@@ -59,8 +72,12 @@ def format_data(solutions_path, dofs_to_keep_path):
     return solutions
 
 
-if __name__ == "__main__":
-    # load data
-    solutions_path = '../data/solutions500/porousSolutions.npy'
-    dofs_to_keep_path = '../data/dofs/pInnerRemainderfacedofs.txt'
-    dataset = format_data(solutions_path, dofs_to_keep_path)
+def unscaled_predict(model, targets, means, stds):
+    predictions = model(targets).detach()
+    return unscale_timeseries(predictions, means, stds)
+
+
+def unscaled_predict_with_targets(model, targets, means, stds):
+    predictions = unscaled_predict(model, targets, means, stds)
+    targets = unscale_timeseries(targets, means, stds).float().detach()
+    return predictions, targets
