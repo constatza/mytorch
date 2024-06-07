@@ -9,9 +9,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        
+      - name: Automatic requirements.txt for Python Project
+        uses: ryan-rozario/pipreqs-action@master
 
-      - name: Install pytest
-        run: pip install pytest
+      - name: Install requirements
+        run: pip install -r requirements.txt
 
       - name: Run Tests
         run: pytest ./tests/
