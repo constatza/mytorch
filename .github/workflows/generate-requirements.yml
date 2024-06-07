@@ -10,5 +10,21 @@ jobs:
         
         with:
           PROJECT_PATH: .   #default is the root of the repository
-          REQUIREMENT_PATH: ./requirements.txt  #default is requirement.txt in the root of your repository 
+          REQUIREMENT_PATH: ./requirements.txt #default is requirement.txt in the root of your repository
+          
+      - name: List directory contents for debugging
+        run: ls -alh
+
+      - name: Configure git
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+
+      - name: Commit and push changes
+        run: |
+          git add requirements.txt
+          git commit -m "Auto-generate requirements.txt"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
