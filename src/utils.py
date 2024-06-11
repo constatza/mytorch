@@ -1,7 +1,9 @@
 from collections.abc import Iterable
 from math import ceil
+import numpy as np
 
 import torch
+import inspect
 
 
 def assure_iterable(arg):
@@ -22,6 +24,9 @@ def conv_kernel(input_size, output_size, stride, padding):
         raise ValueError('Invalid input parameters.')
     return kernel
 
+def calculate_padding(w_in, w_out, kernel_size, stride=1):
+    padding = ((w_out - 1) * stride + kernel_size - w_in) / 2
+    return int(padding)
 
 def conv_kernel_transpose(input_size, output_size, stride, padding):
     return conv_kernel(output_size, input_size, stride, padding)
@@ -139,6 +144,39 @@ def to_tensor(func):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         new_args = tuple(torch.from_numpy(a).to(device) if not isinstance(a, torch.Tensor) else a for a in args)
         return func(*new_args, **kwargs)
+
+    return wrapper
+
+def smart_load_tensors(path, convolutional_dims, **kwargs):
+    """Load with either numpy or torch depending on file extension."""
+    if path.endswith('.pt'):
+        tensor = torch.load(path, **kwargs)
+    elif path.endswith('.csv'):
+        tensor = np.loadtxt(path, delimiter=',', **kwargs)
+    else:
+        raise ValueError('Invalid file extension. Must be either .npy or .pt.')
+
+    if isinstance(tensor, np.ndarray):
+        # Sometimes even files with .pt extension are loaded as numpy arrays
+        tensor = torch.from_numpy(tensor).float()
+
+    return shape_correction(tensor, convolutional_dims)
+
+def shape_correction(tensor, convolution_dims):
+    shape = tensor.shape
+    if len(shape) > convolution_dims + 2:
+        tensor = tensor.squeeze()
+    assert len(tensor.shape) == convolution_dims + 2
+    return tensor
+
+def get_proper_convolution_shape(shape, convolution_dims):
+    return shape[-convolution_dims-1:]
+
+def filtered(func):
+    def wrapper(*args, **kwargs):
+        params = inspect.signature(func).parameters
+        filtered = {k: v for k, v in kwargs.items() if k in params}
+        return func(*args, **filtered)
 
     return wrapper
 
