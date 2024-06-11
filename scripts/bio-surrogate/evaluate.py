@@ -12,7 +12,9 @@ from networks.blocks import StandardScaler, StandardizedModel
 
 
 
-experiment = 'u-cae.toml'
+experiment = 'p-cae.toml'
+
+
 
 parser = TOMLParser(os.path.join('scripts', 'bio-surrogate', 'config', experiment))
 experiment_name = parser['name']
@@ -28,27 +30,25 @@ model_name = model.split('.')[0]
 model_path = os.path.join(parser['paths']['output']['models'], model)
 
 
-targets = torch.load(x_test_path).float()
+targets = torch.load(x_test_path).float().squeeze()
 means = torch.load(means_path).float()
 stds = torch.load(stds_path).float()
 targets = targets.to(device)
 
-lattent_h = targets.shape[2]//4
-lattent_w = 9
-print(f"Original space shape: {targets.shape[2]}x{targets.shape[3]}")
-print(f"Lattent space shape: {lattent_h}x{lattent_w}")
-
 model = torch.load(model_path)
-predictions = model(targets).detach()
 
-scaler = StandardScaler(means=means, stds=stds)
+scaler = StandardScaler().fit(means=means, stds=stds)
 model = StandardizedModel(model, scaler, normalize_in=False, denormalize_out=True)
 model = model.to(device)
 model.eval()
 
 with torch.no_grad():
     predictions = model(targets).detach()
-    targets = model.inverse(targets).float().detach()
+    latent_data = model.base_model.encode(targets).detach()
+    # denormalize the predictions
+    targets = model.inverse_transform(targets).float().detach()
+    print(f"Original space shape: {targets.shape[2]}x{targets.shape[3]}")
+    print(f"Lattent space shape: {latent_data.shape[0]}x{latent_data.shape[1]}")
 
 print("Normalized RMSE:", normalized_rmse(predictions, targets))
 

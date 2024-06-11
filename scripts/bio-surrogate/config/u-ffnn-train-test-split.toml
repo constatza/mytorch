@@ -1,0 +1,20 @@
+name = "u-problem-ffnn-train-test"
+source = "u-problem"
+description = "split the data into train and test sets"
+
+
+[paths.input]
+root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{source}"
+latent-space = "./latent.pt"
+
+[paths.raw]
+root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
+parameters = "./solutions500/parameters.npy"
+
+
+[paths.output]
+root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{name}\\"
+x-train = "./x_train.pt"
+x-test = "./x_test.pt"
+y-train = "./y_train.pt"
+y-test = "./y_test.pt"
