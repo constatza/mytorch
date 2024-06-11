@@ -1,8 +1,14 @@
 import os
 import re
 from abc import ABC, abstractmethod
+from typing import Dict
+
 
 import tomli
+import tomli_w as tw
+import inspect
+import numpy as np
+import torch
 
 
 class Parser(ABC):
@@ -107,6 +113,53 @@ def get_nested_dict_value(d, keys):
     else:
         return d.get(keys[0])
 
+class Logger:
+    def __init__(self, paths_dict: Dict[str, str]):
+        self.paths_dict = paths_dict
+
+    def write(self, name, data, dirname='root'):
+        suffix = name.split('.')[-1]
+
+        # select the correct extension and method
+        if suffix == 'npy':
+            saver = np.save
+            mode = 'wb'
+        elif suffix in ('pt', 'pth'):
+            saver = torch.save
+            mode = 'wb'
+        elif suffix == 'csv':
+            saver = np.savetxt
+            mode = 'a'
+        elif suffix == 'toml':
+            def saver(dictionary, file):
+                for key, value in dictionary.items():
+                    # check if value is a class
+                    if inspect.isclass(value) or inspect.isfunction(value):
+                        dictionary[key] = None
+                dictionary = {k: v for k, v in dictionary.items() if v is not None}
+                tw.dump(dictionary, file)
+
+            mode = 'wb'
+        else:
+            def saver(data, file):
+                if not isinstance(data, str):
+                    data = str(data)
+                file.write(data)
+                file.write('\n')
+
+            mode = 'a'
+
+        directory = self.paths_dict['output'][dirname]
+        os.makedirs(directory, exist_ok=True)
+        path = os.path.join(directory, name)
+        with open(path, mode) as file:
+            saver(data, file)
+
+    def log(self, message):
+        return self.write('log', message)
+
+    def error(self, message):
+        return self.write('error', message)
 
 if __name__ == "__main__":
     config = {
@@ -121,3 +174,4 @@ if __name__ == "__main__":
     }
     parser = TOMLParser(config)
     print(parser.model)
+
