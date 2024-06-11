@@ -146,18 +146,29 @@ class StandardizedModel(nn.Module):
         predictions = self.base_model(x).detach()
 
         if self.denormalize_out:
-            predictions = self.inverse(predictions)
+            predictions = self.inverse_transform(predictions)
 
         return predictions
 
-    def inverse(self, x):
-        return self.scaler.inverse(x)
+    def inverse_transform(self, x):
+        return self.scaler.inverse_transform(x)
 
 
 class StandardScaler(nn.Module):
 
-    def __init__(self, dataset=None, means=None, stds=None):
+    def __init__(self):
         super(StandardScaler, self).__init__()
+
+    def forward(self, x):
+        return (x - self.means) / self.stds
+
+    def transform(self, x):
+        return self.forward(x)
+
+    def inverse_transform(self, x):
+        return x * self.stds + self.means
+
+    def fit(self, means=None, stds=None, dataset=None):
         if means is None and dataset is not None:
             self.means = torch.mean(dataset, dim=(0, -1), keepdim=True)
         else:
@@ -168,8 +179,8 @@ class StandardScaler(nn.Module):
         else:
             self.stds = stds
 
-    def forward(self, x):
-        return (x - self.means) / self.stds
+        return self
 
-    def inverse(self, x):
-        return x * self.stds + self.means
+    def fit_transform(self, dataset):
+        self.fit(dataset=dataset)
+        return self.transform(dataset)
