@@ -5,6 +5,7 @@ import torch
 from metrics import normalized_rmse
 from parsers import TOMLParser
 from networks.blocks import StandardScaler, StandardizedModel
+import matplotlib.pyplot as plt
 
 config_file = './config/p-cae.toml'
 
@@ -25,28 +26,38 @@ targets = torch.from_numpy(targets).float().squeeze()
 means = torch.load(means_path).float().squeeze(1)
 stds = torch.load(stds_path).float().squeeze(1)
 targets = targets.to(device)
+print(f"Means shape: {means.shape}")
+print(f"Stds shape: {stds.shape}")
+print(f"Targets shape: {targets.shape}")
 
-scaler = StandardScaler(means=means, stds=stds)
 
-cae = torch.load(model_path)
-cae = cae.to(device)
-cae.eval()
+model = torch.load(model_path)
+
+
+scaler = StandardScaler().fit(means=means, stds=stds)
+scaler = scaler.to(device)
+
+model = model.to(device)
+model.eval()
 with torch.no_grad():
-    input = scaler(targets)
-    latent_data = cae.encoder(input).detach()
+    targets_normalized = (targets - means) / stds
 
-    predictions = cae.decoder(latent_data).detach()[:, :, :730]
+    predictions = model(targets_normalized).detach().squeeze()
+    latent_data = model.encode(targets_normalized).detach()
+    predictions = predictions * stds + means
 
-    predictions = scaler.inverse(predictions).detach()
     error = normalized_rmse(predictions[:100], targets[:100])
 
 
+print("Original space shape:", targets.shape)
+print("Latent space shape:", latent_data.shape)
+print(f"predictions shape: {predictions.shape}")
 print("Normalized RMSE:", error)
 
-# reduce to vector
-latent_data = latent_data.view(latent_data.size(0), -1)
 # Save the predictions
 os.makedirs(os.path.dirname(latent_path), exist_ok=True)
 torch.save(latent_data, latent_path)
 
-
+plt.plot(targets[0, 0, :].cpu().numpy())
+plt.plot(predictions[0, 0, :].cpu().numpy())
+plt.show()

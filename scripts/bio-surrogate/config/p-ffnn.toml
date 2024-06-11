@@ -1,26 +1,29 @@
 name = "p-problem-ffnn"
+source="p-problem-ffnn-train-test"
 description = "feedforward neural network for the porous media problem"
 
 [model]
-networks = []
-num-layers = [4, 6]
+networks = ['ffnns.ConstantHiddenSizeFFNN']
+hidden-layers = [10, 15]
+hidden-size = [1000, 2000]
+
 
 [training]
-batch-size = [32]
-learning-rate = [1e-3, 1e-4]
-num-epochs = 6000
+batch-size = [64]
+learning-rate = [ 1e-5]
+num-epochs = 16000
 
 [paths.input]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{name}"
-x-train = "./x_train.pt"
-x-test = "./x_test.pt"
-means = "./means.pt"
-stds = "./stds.pt"
+root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{source}"
+#x-train = "./x_train.pt"
+#x-test = "./x_test.pt"
+#y-train = "./y_train.pt"
+#y-test = "./y_test.pt"
+x-train = "./x_train_scaled.pt"
+x-test = "./x_test_scaled.pt"
+y-train = "./y_train_scaled.pt"
+y-test = "./y_test_scaled.pt"
 
-[paths.raw]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
-dofs = "./dofs/Udofs.txt"
-data = "./solutions500/porousSolutions.npy"
 
 [paths.output]
 root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\output\\{name}\\"
