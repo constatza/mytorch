@@ -7,14 +7,14 @@ variable = "P"
 networks = ["caes.LinearChannelDescentLatent1d"]
 kernel-size = [7, 9]
 num-layers = [4, 5]
-latent-size = [3, 6]
+latent-size = [3]
 
 
 
 [training]
 batch-size = [32]
-learning-rate = [1e-4]
-num-epochs = 6000
+learning-rate = [2e-4]
+num-epochs = 4000
 
 [test]
 model = "LinearChannelDescentLatent1d_2.pt"
@@ -22,14 +22,14 @@ model = "LinearChannelDescentLatent1d_2.pt"
 [paths.input]
 solutions = "./formatted_solutions.npy"
 root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\p-problem"
-x-train = "./x_train.pt"
-x-test = "./x_test.pt"
-y-train = "./x_train.pt"
-y-test = "./x_test.pt"
-means = "./means.pt"
-stds = "./stds.pt"
-dataset = "./dataset.pt"
-latent = "./latent.pt"
+x-train = "./x_train_scaled.npy"
+x-test = "./x_test_scaled.npy"
+y-train = "./x_train.npy"
+y-test = "./x_test.npy"
+means = "./means.npy"
+stds = "./stds.npy"
+dataset = "./dataset.npy"
+latent = "./latent.npy"
 
 [paths.output]
 root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\output\\{name}\\"
@@ -42,3 +42,4 @@ figures = "./figures/"
 root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
 dofs = "./dofs/Pdofs.txt"
 data = "./solutions500/porousSolutions.npy"
+parameters = "./parameters.npy"

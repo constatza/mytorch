@@ -5,7 +5,7 @@ description = "split the data into train and test sets"
 
 [paths.input]
 root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{source}"
-latent-space = "./latent.pt"
+latent-space = "./latent.npy"
 
 [paths.raw]
 root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
@@ -14,7 +14,11 @@ parameters = "./solutions500/parameters.npy"
 
 [paths.output]
 root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{name}\\"
-x-train = "./x_train.pt"
-x-test = "./x_test.pt"
-y-train = "./y_train.pt"
-y-test = "./y_test.pt"
+x-train = "./x_train.npy"
+x-test = "./x_test.npy"
+y-train = "./y_train.npy"
+y-test = "./y_test.npy"
+x-train-scaled = "./x_train_scaled.npy"
+x-test-scaled = "./x_test_scaled.npy"
+y-train-scaled = "./y_train_scaled.npy"
+y-test-scaled = "./y_test_scaled.npy"

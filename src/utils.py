@@ -151,6 +151,8 @@ def smart_load_tensors(path, convolutional_dims, **kwargs):
     """Load with either numpy or torch depending on file extension."""
     if path.endswith('.pt'):
         tensor = torch.load(path, **kwargs)
+    elif path.endswith('.npy'):
+        tensor = np.load(path, **kwargs)
     elif path.endswith('.csv'):
         tensor = np.loadtxt(path, delimiter=',', **kwargs)
     else:
@@ -163,10 +165,12 @@ def smart_load_tensors(path, convolutional_dims, **kwargs):
     return shape_correction(tensor, convolutional_dims)
 
 def shape_correction(tensor, convolution_dims):
-    shape = tensor.shape
-    if len(shape) > convolution_dims + 2:
+    shape_dims = len(tensor.shape)
+    if shape_dims > convolution_dims + 2:
         tensor = tensor.squeeze()
-    assert len(tensor.shape) == convolution_dims + 2
+    shape_dims = len(tensor.shape)
+    if shape_dims > 2:
+        assert shape_dims == convolution_dims + 2
     return tensor
 
 def get_proper_convolution_shape(shape, convolution_dims):

@@ -1,13 +1,14 @@
 
 import os
 import torch
+import numpy as np
 
 from metrics import normalized_rmse
 from parsers import TOMLParser
 from networks.blocks import StandardScaler, StandardizedModel
 import matplotlib.pyplot as plt
 
-config_file = './config/p-cae.toml'
+config_file = './config/u-cae.toml'
 
 parser = TOMLParser(config_file)
 
@@ -21,18 +22,23 @@ latent_path = parser['paths']['input']['latent']
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-targets = torch.load(data_path)
+targets =  np.load(data_path, allow_pickle=False)
+means = np.load(means_path)
+stds = np.load(stds_path)
+
 targets = torch.from_numpy(targets).float().squeeze()
-means = torch.load(means_path).float().squeeze(1)
-stds = torch.load(stds_path).float().squeeze(1)
+means = torch.from_numpy(means).float().view(1, -1, 1)
+stds = torch.from_numpy(stds).float().view(1, -1, 1)
+
 targets = targets.to(device)
+means = means.to(device)
+stds = stds.to(device)
 print(f"Means shape: {means.shape}")
 print(f"Stds shape: {stds.shape}")
 print(f"Targets shape: {targets.shape}")
 
 
-model = torch.load(model_path)
-
+model = torch.jit.load(model_path)
 
 scaler = StandardScaler().fit(means=means, stds=stds)
 scaler = scaler.to(device)
@@ -46,17 +52,17 @@ with torch.no_grad():
     latent_data = model.encode(targets_normalized).detach()
     predictions = predictions * stds + means
 
-    error = normalized_rmse(predictions[:100], targets[:100])
+    # error = normalized_rmse(predictions[:100], targets[:100])
 
 
 print("Original space shape:", targets.shape)
 print("Latent space shape:", latent_data.shape)
 print(f"predictions shape: {predictions.shape}")
-print("Normalized RMSE:", error)
+# print("Normalized RMSE:", error)
 
 # Save the predictions
 os.makedirs(os.path.dirname(latent_path), exist_ok=True)
-torch.save(latent_data, latent_path)
+np.save(latent_path, latent_data.cpu().numpy(), allow_pickle=False)
 
 plt.plot(targets[0, 0, :].cpu().numpy())
 plt.plot(predictions[0, 0, :].cpu().numpy())

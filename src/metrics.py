@@ -1,6 +1,7 @@
 import torch
 
 from utils import to_tensor
+from torch.nn import functional as F
 
 
 @to_tensor
@@ -24,3 +25,13 @@ def ktl(predictions, targets):
 def normalized_rmse(predictions, targets):
     """Normalized Root Mean Square Error"""
     return rmse(predictions, targets) / root_mean_square(targets)
+# Reconstruction + KL divergence losses summed over all elements and batch
+
+def mse_plus_kl_divergence(recon_x, x, mu, logvar):
+    BCE = F.mse_loss(recon_x, x, reduction='sum')
+    # see Appendix B from VAE paper:
+    # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
+    # https://arxiv.org/abs/1312.6114
+    # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return BCE + KLD
