@@ -3,8 +3,9 @@ import os
 import torch
 from parsers import TOMLParser, Logger
 from experiment import Analysis, AnalysisLoader
+from metrics import mse_plus_kl_divergence
 
-config_path = 'scripts/bio-surrogate/config/p-cae.toml'
+config_path = 'scripts/bio-surrogate/config/u-ffnn.toml'
 delete_old = True
 args = sys.argv
 if len(args) > 1:
@@ -13,7 +14,7 @@ if len(args) > 1:
 parser = TOMLParser(config_path)
 
 optimizer = torch.optim.Adam
-criterion = torch.nn.MSELoss()
+criterion = mse_plus_kl_divergence
 
 
 analysis_loader = AnalysisLoader(parser, delete_old=delete_old, convolution_dims=1)

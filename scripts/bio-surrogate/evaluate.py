@@ -30,33 +30,43 @@ model_name = model.split('.')[0]
 model_path = os.path.join(parser['paths']['output']['models'], model)
 
 
-targets = torch.load(x_test_path).float().squeeze()
-means = torch.load(means_path).float()
-stds = torch.load(stds_path).float()
+targets = np.load(x_test_path, allow_pickle=False).squeeze()
+means = np.load(means_path)
+stds = np.load(stds_path)
+
+targets = torch.tensor(targets).float().squeeze()
+means = torch.tensor(means).float().view(1, -1, 1)
+stds = torch.tensor(stds).float().view(1, -1, 1)
+
+
 targets = targets.to(device)
+means = means.to(device)
+stds = stds.to(device)
 
 model = torch.load(model_path)
 
 scaler = StandardScaler().fit(means=means, stds=stds)
-model = StandardizedModel(model, scaler, normalize_in=False, denormalize_out=True)
 model = model.to(device)
 model.eval()
 
 with torch.no_grad():
     predictions = model(targets).detach()
-    latent_data = model.base_model.encode(targets).detach()
+    latent_data = model.encode(targets).detach()
+    targets = scaler.inverse_transform(targets)
+    predictions = scaler.inverse_transform(predictions)
+    error = normalized_rmse(predictions, targets)
     # denormalize the predictions
-    targets = model.inverse_transform(targets).float().detach()
-    print(f"Original space shape: {targets.shape[2]}x{targets.shape[3]}")
-    print(f"Lattent space shape: {latent_data.shape[0]}x{latent_data.shape[1]}")
 
-print("Normalized RMSE:", normalized_rmse(predictions, targets))
+print(f"Original space shape: {targets.shape[1]}x{targets.shape[2]}")
+print(f"Lattent space shape: {latent_data.shape[0]}x{latent_data.shape[1]}")
+
+print("Normalized RMSE:", error)
 
 sample = random.randint(0, targets.shape[0]-1)
-dof = random.randint(0, targets.shape[2]-1)
+dof = random.randint(0, targets.shape[1]-1)
 # sample, dof = 24, 17
-y = targets[sample, 0, dof, :]
-y_pred = predictions[sample, 0, dof, :]
+y = targets[sample, dof, :]
+y_pred = predictions[sample, dof, :]
 
 title = f"Sample: {sample}, DoF: {dof}"
 fig = plot_parametric_predictions(y_pred, y, x_label='Timestep', y_label=parser['variable'], title=title)

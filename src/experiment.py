@@ -12,102 +12,6 @@ from datasets import create_dataloaders
 from utils import filtered
 
 
-@filtered
-class Experiment:
-    def __init__(self, model=None, uid=None, dataloader_train=None, dataloader_val=None,
-                 optimizer=None, criterion=None, lr=None, batch_size=None, num_epochs=None, checkpoint_dir=None,
-                 epoch_print_interval=10):
-        self.name = model.__class__.__name__ + '_' + str(uid)
-        self.model = model
-        self.dataloader_train = dataloader_train
-        self.dataloader_val = dataloader_val
-        self.id = uid
-        self.optimizer = optimizer(self.model.parameters(), lr=lr)
-        self.criterion = criterion
-        self.lr = lr
-        self.batch_size = batch_size
-        self.num_epochs = num_epochs
-        self.checkpoint_relative_tol = 0.5
-        self.checkpoint_path = os.path.join(checkpoint_dir, self.name + '.pt')
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        self.epoch_print_interval = epoch_print_interval
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f'Using {self.device} for training.')
-
-    def run(self, *args, **kwargs):
-        return self.train(*args, **kwargs)
-
-
-    def train(self) -> tuple:
-        """Training loop for the model with both training and validation loss."""
-        # use the GPU if available
-        optimizer = self.optimizer
-        criterion = self.criterion
-        device = self.device
-
-        # Initialize lists to store training and validation losses
-        train_losses = []
-        val_losses = []
-        min_val_loss = float('inf')
-        self.model.to(device)
-        for epoch in range(self.num_epochs):
-            # Training
-            self.model.train()
-            train_loss = 0
-            for x_batch, y_batch in self.dataloader_train:
-
-                x_batch = x_batch.to(device)
-                y_batch = y_batch.to(device)
-
-                optimizer.zero_grad()
-                y_pred = self.model(x_batch)
-                loss = criterion(y_pred, y_batch)
-                loss.backward()
-                optimizer.step()
-                train_loss += loss.item() * x_batch.size(0)
-            train_losses.append(train_loss / len(self.dataloader_train))
-
-            # Validation
-            val_loss = 0
-            self.model.eval()
-            with torch.no_grad():
-                for x_batch, y_batch in self.dataloader_val:
-                    x_batch = x_batch.to(device)
-                    y_batch = y_batch.to(device)
-                    loss_val = criterion(self.model(x_batch), y_batch)
-                    val_loss += loss_val.item() * x_batch.size(0)
-                val_losses.append(val_loss / len(self.dataloader_val))
-
-            self.print_losses(train_losses[-1], val_losses[-1], epoch)
-
-
-            # Check if the validation loss has decreased by more than the tolerance
-            if relative_tolerance(min_val_loss, val_losses) > self.checkpoint_relative_tol:
-                print('Checkpointing model...')
-                min_val_loss = val_losses[-1]
-                # Save the model state
-                best_model = torch.jit.script(self.model)
-                # Save the model state to a file
-                best_model.save(self.checkpoint_path)
-
-        return train_losses, val_losses
-
-
-    def print_losses(self, train_loss, val_loss, epoch) -> None:
-        epoch_for_print = epoch + 1
-        if epoch_for_print % self.epoch_print_interval == 0:
-            text = f'Epoch {epoch_for_print}/{self.num_epochs} | Train Loss: {train_loss:.5e} | Val Loss: {val_loss:.5e}'
-            print(text)
-
-
-
-
-def relative_tolerance(min_loss, losses):
-    if len(losses) > 5:
-        mean = np.mean(losses[-5:])
-    else:
-        mean = np.mean(losses)
-    return (min_loss - mean) / mean
 
 
 
@@ -186,8 +90,8 @@ class AnalysisLoader:
         self.dataloader_train, self.dataloader_val = create_dataloaders(self.x_train, self.x_test, self.y_train,
                                                                         self.y_test)
         self.is_autoencoder = self.dataloader_val.dataset.is_autoencoder
-        self.x_shape = self.dataloader_val.dataset.x_shape
-        self.y_shape = self.dataloader_val.dataset.y_shape
+        self.x_shape = self.dataloader_train.dataset.x_shape
+        self.y_shape = self.dataloader_train.dataset.y_shape
         self.input_shape = get_proper_convolution_shape(self.x_shape, self.convolution_dims)
         self.output_shape = get_proper_convolution_shape(self.y_shape, self.convolution_dims)
 

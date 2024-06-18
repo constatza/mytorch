@@ -3,23 +3,34 @@ description = "diplacements from porous media flow"
 variable = "U"
 
 [model]
-networks = ["caes.CAE1dLinear2"]
-num-layers = [4, 6]
+networks = ["caes.LinearChannelDescentLatent1d"]
+kernel-size = [5, 7]
+num-layers = [4]
+latent-size = [3]
+
 
 [training]
 batch-size = [32]
-learning-rate = [1e-3, 1e-4]
-num-epochs = 6000
+learning-rate = [2e-4]
+num-epochs = 2000
 
 [test]
-model = "CAE1dLinear2_1.pt"
+model = "LinearChannelDescentLatent1d_0.pt"
 
 [paths.input]
 root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{name}"
-x-train = "./x_train.pt"
-x-test = "./x_test.pt"
-means = "./means.pt"
-stds = "./stds.pt"
+x-train = "./x_train_scaled.npy"
+x-test = "./x_test_scaled.npy"
+y-train = "./x_train_scaled.npy"
+y-test = "./x_test_scaled.npy"
+#x-train = "./x_train.npy"
+#x-test = "./x_test.npy"
+#y-train = "./x_train.npy"
+#y-test = "./x_test.npy"
+means = "./means.npy"
+stds = "./stds.npy"
+dataset = "./dataset.npy"
+latent = "./latent.npy"
 
 [paths.raw]
 root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
