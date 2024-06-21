@@ -5,7 +5,7 @@ from parsers import TOMLParser, Logger
 from experiment import Analysis, AnalysisLoader
 from metrics import mse_plus_kl_divergence
 
-config_path = 'scripts/bio-surrogate/config/u-ffnn.toml'
+config_path = 'scenarios/bio-surrogate/config/u-ffnn.toml'
 delete_old = True
 args = sys.argv
 if len(args) > 1:
