@@ -3,7 +3,7 @@ import io
 import sys
 from pydantic import BaseModel
 import torch
-import pathlib
+from pathlib import Path
 import numpy as np
 import logging
 from pydantic import FilePath, PositiveInt, ConfigDict
@@ -11,28 +11,28 @@ from pydantic import FilePath, PositiveInt, ConfigDict
 ArrayLike = Union[List, torch.Tensor, np.ndarray, Tuple]
 
 
-def get_logger(history_file, error_file) -> logging.Logger:
+def get_logger(history_file=None, error_file=None, console=False) -> logging.Logger:
     logger = logging.getLogger('train')
     logger.setLevel(logging.INFO)
 
-    history_handler = logging.FileHandler(history_file)
-    console_handler = logging.StreamHandler()
-    error_handler = logging.FileHandler(error_file)
+    if history_file:
+        history_handler = logging.FileHandler(history_file)
+        history_handler.setLevel(logging.INFO)
+        history_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logger.addHandler(history_handler)
 
-    history_handler.setLevel(logging.INFO)
-    error_handler.setLevel(logging.ERROR)
-    console_handler.setLevel(logging.INFO)
+    if error_file:
+        error_handler = logging.FileHandler(error_file)
+        error_handler.setLevel(logging.ERROR)
+        error_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logger.addHandler(error_handler)
 
-    format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    console_format = logging.Formatter('%(message)s')
+    if console:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(logging.Formatter('%(message)s'))
+        logger.addHandler(console_handler)
 
-    history_handler.setFormatter(format)
-    error_handler.setFormatter(format)
-    console_handler.setFormatter(console_format)
-
-    logger.addHandler(history_handler)
-    logger.addHandler(console_handler)
-    logger.addHandler(error_handler)
     return logger
 
 
@@ -40,14 +40,18 @@ def get_logger(history_file, error_file) -> logging.Logger:
 class TrainLogger(BaseModel):
     class Config:
         arbitrary_types_allowed = True
+        # extra = 'ignore'
 
-    history_file: FilePath
-    error_file: FilePath
+    history_file: Optional[Path] = None
+    error_file: Optional[Path] = None
+    console: bool = True
 
     @property
     def logger(self) -> logging.Logger:
         if not hasattr(self, '_logger'):
-            self._logger = get_logger(self.history_file, self.error_file)
+            self._logger = get_logger(history_file=self.history_file,
+                                      error_file=self.error_file,
+                                      console=self.console)
         return self._logger
 
 
@@ -81,7 +85,7 @@ class CheckpointLogger(TrainLogger):
     model: torch.nn.Module
     relative_tol: float = 0.7
     min_val_loss: float = float('inf')
-    checkpoint_path: FilePath
+    checkpoint_path: Path
     past_n: PositiveInt = 10
 
     def log(self, epoch: int, train_loss: float, val_loss: ArrayLike) -> None:
