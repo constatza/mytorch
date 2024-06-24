@@ -1,7 +1,7 @@
 import io
 
 import pytest
-from mytorch.loggers.utils import (find_placeholders_in_string, replace_placeholders_in_dict,
+from mytorch.config.utils import (find_placeholders_in_string, replace_placeholders_in_dict,
                                    get_nested_dict_value, join_root_with_paths, convert_path_dict_to_pathlib,
                                    set_nested_dict_value)
 from pathlib import Path
