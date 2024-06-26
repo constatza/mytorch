@@ -1,6 +1,6 @@
 import torch
 
-from utils import to_tensor
+from mytorch.networks.utils import to_tensor
 from torch.nn import functional as F
 
 
