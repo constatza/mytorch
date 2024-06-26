@@ -16,7 +16,7 @@ experiment = 'p-cae.toml'
 
 
 
-parser = TOMLParser(os.path.join('scenarios', 'bio-surrogate', 'config', experiment))
+parser = TOMLParser(os.path.join('scenarios', 'bio-surrogate', 'io', experiment))
 experiment_name = parser['name']
 x_test_path = parser['paths']['input']['x-test']
 means_path = parser['paths']['input']['means']

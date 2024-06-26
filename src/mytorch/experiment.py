@@ -7,13 +7,10 @@ from itertools import product
 import numpy as np
 import torch
 from utils import smart_load_tensors, get_proper_convolution_shape
+from io.config import ScenarioConfig
 
-from datasets import create_dataloaders
+from dataloaders import create_dataloaders
 from utils import filtered
-
-
-
-
 
 
 class Parameters:
@@ -34,8 +31,6 @@ class Parameters:
             new_key = key_mapping.get(key, key).replace('-', '_')
             new_keys.append(new_key)
         return new_keys
-
-
 
 
 class AnalysisLoader:
@@ -71,29 +66,6 @@ class AnalysisLoader:
                 self.experiments_ran.append(int(experiment_id))
 
     def load_data(self) -> None:
-        self.training_parameters = self.paths_dict['training']
-        x_train = self.paths_dict['paths']['input']['x-train']
-        x_test = self.paths_dict['paths']['input']['x-test']
-        y_train = self.paths_dict['paths']['input']['y-train']
-        y_test = self.paths_dict['paths']['input']['y-test']
-
-        self.x_train = smart_load_tensors(x_train, self.convolution_dims)
-        self.x_test = smart_load_tensors(x_test, self.convolution_dims)
-
-        if x_train != y_train and x_test != y_test:
-            self.y_train = smart_load_tensors(y_train, self.convolution_dims)
-            self.y_test = smart_load_tensors(y_test, self.convolution_dims)
-        else:
-            self.y_train = None
-            self.y_test = None
-
-        self.dataloader_train, self.dataloader_val = create_dataloaders(self.x_train, self.x_test, self.y_train,
-                                                                        self.y_test)
-        self.is_autoencoder = self.dataloader_val.dataset.is_autoencoder
-        self.x_shape = self.dataloader_train.dataset.x_shape
-        self.y_shape = self.dataloader_train.dataset.y_shape
-        self.input_shape = get_proper_convolution_shape(self.x_shape, self.convolution_dims)
-        self.output_shape = get_proper_convolution_shape(self.y_shape, self.convolution_dims)
 
 
 
@@ -118,23 +90,12 @@ class AnalysisLoader:
         self.models_dict = {'model': [model for model in self.models]}
 
 
-class Analysis:
+class Scenario(BaseModel):
     """Creates all possible combinations of parameters for the experiment using cartesian product."""
+    config: ScenarioConfig
 
-    def __init__(self, analysis_loader: AnalysisLoader, logger, optimizer, criterion, is_convolutional=False) -> None:
 
-        self.loader = analysis_loader
-        self.is_convolutional = is_convolutional
-        self.optimizer = optimizer
-        self.criterion = criterion
-        self.model_combinations = analysis_loader.model_combinations
-        self.training_combinations = analysis_loader.training_combinations
-        self.num_experiments = analysis_loader.num_experiments
-        self.experiments_ran = analysis_loader.experiments_ran
-        self.model_shape_parameters = analysis_loader.model_shape_parameters
-        self.dataloader_train = analysis_loader.dataloader_train
-        self.dataloader_val = analysis_loader.dataloader_val
-        self.logger = logger
+
     def run(self) -> None:
         logger = self.logger
         losses = []

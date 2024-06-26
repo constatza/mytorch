@@ -12,9 +12,9 @@ from networks.blocks import StandardScaler, StandardizedModel
 
 
 
-experiment = 'config/u-ffnn.toml'
+experiment = 'io/u-ffnn.toml'
 
-path_to_config = os.path.join('scenarios', 'bio-surrogate', 'config', experiment)
+path_to_config = os.path.join('scenarios', 'bio-surrogate', 'io', experiment)
 path_to_config = experiment
 
 

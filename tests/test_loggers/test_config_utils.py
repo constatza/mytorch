@@ -1,42 +1,51 @@
-import io
-
 import pytest
-from mytorch.config.utils import (find_placeholders_in_string, replace_placeholders_in_dict,
-                                   get_nested_dict_value, join_root_with_paths, convert_path_dict_to_pathlib,
-                                   set_nested_dict_value)
 from pathlib import Path
-from pydantic import FilePath
+from src.mytorch.io.utils import *
 
+# Define a fixture for the tests
 @pytest.fixture
-def setup_data():
+def fixture_dict():
     return {
-        "fstring": "This is a {test} string with an {example}",
-        "placeholder_dict": {"key": "value", "placeholder": "{key}"},
-        "dict": {"key": {"subkey": "value"}},
-        "paths_dict": {"root": "root/path", "file": "file.txt"},
-        "path_dict": {"file": "/path/to/file"}
+        "string": "This is a string with a {placeholder}",
+        "key_to_placeholder": {"placeholder": "placeholder_value"},
+        "integer": 123,
+        "list": [1, 2, 3],
+        "dict": {"key1": "value1", "key2": "value2"},
+        "path": Path("/path/to/somewhere"),
+        "nested_dict": {"key1": {"subkey1": "subvalue1"}, "key2": "value2"},
     }
 
-def test_find_placeholders_in_string(setup_data):
-    assert find_placeholders_in_string(setup_data["fstring"]) == ["test", "example"]
+def test_find_placeholders_in_string(fixture_dict):
+    result = find_placeholders_in_string(fixture_dict["string"])
+    assert result == ["placeholder"]
 
+def test_read_toml(fixture_dict, tmp_path):
+    # Create a temporary toml file for testing
+    toml_file = tmp_path / "test.toml"
+    toml_file.write_text("[section]\nkey = 'value'")
+    result = read_toml(toml_file)
+    assert result == {"section": {"key": "value"}}
 
-def test_convert_path_dict_to_pathlib(setup_data):
-    assert convert_path_dict_to_pathlib(setup_data["path_dict"]) == {"file": Path("/path/to/file")}
+def test_apply_to_dict(fixture_dict):
+    func = lambda x, y: x.upper() if isinstance(x, str) else x
+    result = apply_to_dict(fixture_dict["dict"], func=func)
+    assert result == {"key1": "VALUE1", "key2": "VALUE2"}
 
+def test_replace_placeholders(fixture_dict):
+    result = replace_placeholders(fixture_dict["string"], fixture_dict)
+    assert result == "This is a string with a placeholder_value"
 
-def test_replace_placeholders_in_dict(setup_data):
-    assert replace_placeholders_in_dict(setup_data["placeholder_dict"]) == {"key": "value", "placeholder": "value"}
+def test_join_root_with_paths(fixture_dict):
+    paths_dict = {"root": fixture_dict["path"], "other": "other/path"}
+    result = join_root_with_paths(paths_dict)
+    assert result == {"root": fixture_dict["path"], "other": fixture_dict["path"] / "other/path"}
 
+def test_convert_path_dict_to_pathlib(fixture_dict):
+    paths_dict = {"path1": "/path/to/somewhere", "path2": "/another/path"}
+    result = convert_path_dict_to_pathlib(paths_dict)
+    assert isinstance(result["path1"], Path)
+    assert isinstance(result["path2"], Path)
 
-def test_get_nested_dict_value(setup_data):
-    assert get_nested_dict_value(setup_data["dict"], ["key", "subkey"]) == "value"
-
-
-def test_join_root_with_paths(setup_data):
-    assert join_root_with_paths(setup_data["paths_dict"])['file'] == Path("root/path/file.txt")
-
-
-def test_set_nested_dict_value(setup_data):
-    set_nested_dict_value(setup_data["dict"], ["key", "subkey"], "new_value")
-    assert setup_data["dict"] == {"key": {"subkey": "new_value"}}
+def test_get_nested_dict_value(fixture_dict):
+    result = get_nested_dict_value(fixture_dict["nested_dict"], ["key1", "subkey1"])
+    assert result == "subvalue1"
