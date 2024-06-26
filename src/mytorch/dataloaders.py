@@ -2,6 +2,9 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 from typing import Optional, Union
 
+from mytorch.networks.utils import smart_load_tensors
+from mytorch.io.config import PathsInputConfig
+
 
 class OptionalTargetDataset(TensorDataset):
     """
@@ -76,4 +79,26 @@ def create_dataloaders(x_train: torch.Tensor, x_test: torch.Tensor, y_train=None
 
     dataloader_train = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     dataloader_val = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    return dataloader_train, dataloader_val
+
+def create_dataloaders_from_path_config(paths_input_config: PathsInputConfig, convolution_dims: int):
+    """ get the train_loader and test_loader from the data and return them.
+    """
+
+    x_train = paths_input_config.x_train
+    x_test = paths_input_config.x_test
+    y_train = paths_input_config.y_train
+    y_test = paths_input_config.y_test
+
+    x_train = smart_load_tensors(x_train, convolution_dims)
+    x_test = smart_load_tensors(x_test, convolution_dims)
+
+    if x_train != y_train and x_test != y_test:
+        y_train = smart_load_tensors(y_train, convolution_dims)
+        y_test = smart_load_tensors(y_test, convolution_dims)
+    else:
+        y_train = None
+        y_test = None
+
+    dataloader_train, dataloader_val = create_dataloaders(x_train, x_test, y_train, y_test)
     return dataloader_train, dataloader_val

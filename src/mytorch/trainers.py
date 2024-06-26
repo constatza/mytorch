@@ -3,7 +3,7 @@ import numpy as np
 from pydantic import BaseModel, validator
 from typing import Optional, Union
 
-from .io.config import TrainingConfig
+from mytorch.io.config import TrainingConfig
 
 
 # Define the Trainer class
@@ -96,8 +96,8 @@ class AutoEncoderTrainer(Trainer):
     This class inherits from the Trainer class and overrides the train_step and test_step methods.
     """
 
-    @validator('io')
-    def only_x_dataloader(cls, value):
+    @validator('config')
+    def ensure_autoencoder_loader(cls, value):
         """
         Ensure that the training and test loaders are for the input data only.
 
@@ -111,8 +111,6 @@ class AutoEncoderTrainer(Trainer):
         if len(value.train_loader.dataset.shape) > 2:
             raise ValueError("Autoencoder requires input data only")
         return value
-
-
 
 
     def train_step(self):

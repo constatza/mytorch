@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 
-from utils import to_tensor
+from mytorch.networks.utils import to_tensor
 
 
 def reshaper(func):

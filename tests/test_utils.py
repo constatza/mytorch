@@ -1,9 +1,10 @@
 import pytest
-from mytorch.utils import atleast_2d, recursive_apply
-from mytorch.utils import conv_out, conv_out_repeated, conv_out_repeated_2d
-from mytorch.utils import conv_out_transpose, conv_out_transpose
-from mytorch.utils import conv_kernel, conv_kernel_transpose
-from mytorch.utils import conv_out_vect, conv_out_transpose_vect
+from mytorch.networks.utils import atleast_2d, recursive_apply
+from mytorch.networks.utils import conv_out, conv_out_repeated, conv_out_repeated_2d
+from mytorch.networks.utils import conv_out_transpose
+from mytorch.networks.utils import conv_kernel, conv_kernel_transpose
+from mytorch.networks.utils import conv_out_vect
+
 
 @pytest.mark.parametrize('args',[
     (10, 3, 2, 1, 5),
