@@ -3,7 +3,7 @@ import numpy as np
 from pydantic import BaseModel, validator
 from typing import Optional, Union
 
-from .config.training import TrainingConfig
+from .io.config import TrainingConfig
 
 
 # Define the Trainer class
@@ -96,7 +96,7 @@ class AutoEncoderTrainer(Trainer):
     This class inherits from the Trainer class and overrides the train_step and test_step methods.
     """
 
-    @validator('config')
+    @validator('io')
     def only_x_dataloader(cls, value):
         """
         Ensure that the training and test loaders are for the input data only.

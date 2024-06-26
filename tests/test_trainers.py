@@ -4,7 +4,7 @@ from torch.optim import SGD
 from torch.nn import MSELoss
 from torch.utils.data import DataLoader
 from mytorch.trainers import Trainer, AutoEncoderTrainer
-from mytorch.config.training import TrainingConfig
+from mytorch.config.core import TrainingConfig
 from mytorch.config.loggers import ProgressLogger
 
 # Define pytest fixtures for the common setup code
@@ -40,9 +40,11 @@ def training_config(mock_model, mock_dataloader):
         train_loader=mock_dataloader,
         test_loader=mock_dataloader,
         num_epochs=5,
+        batch_size=2,
         device=torch.device('cpu'),
         logger= ProgressLogger(console=False),
-        unique_id='1234'
+        unique_id='1234',
+
     )
 
 @pytest.fixture
@@ -54,6 +56,7 @@ def training_config_autoencoder(mock_model, mock_dataloader_input_only):
         train_loader=mock_dataloader_input_only,
         test_loader=mock_dataloader_input_only,
         num_epochs=5,
+        batch_size=2,
         device=torch.device('cpu'),
         logger= ProgressLogger(console=False),
         unique_id='1234'

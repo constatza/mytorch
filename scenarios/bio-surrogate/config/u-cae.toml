@@ -1,9 +1,11 @@
+[scenario]
 name = "u-problem"
 description = "diplacements from porous media flow"
 variable = "U"
+convolution-dims = 1
 
 [model]
-networks = ["caes.LinearChannelDescentLatent1d"]
+name = "caes.LinearChannelDescentLatent1d"
 kernel-size = [5, 7]
 num-layers = [4]
 latent-size = [3]
@@ -13,6 +15,9 @@ latent-size = [3]
 batch-size = [32]
 learning-rate = [2e-4]
 num-epochs = 2000
+optimizer = "Adam"
+
+
 
 [test]
 model = "LinearChannelDescentLatent1d_0.pt"
