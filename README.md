@@ -19,4 +19,4 @@ To install MyTorch, clone the repository and install the required dependencies:
 ```bash
 git clone https://github.com/constatza/mytorch.git
 cd mytorch
-pip install -r requirements.txt
+poetry install
