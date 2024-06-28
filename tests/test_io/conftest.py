@@ -16,11 +16,18 @@ def logger_data():
 @pytest.fixture
 def utils_dict():
     return {
-        "string": "This is a string with a {placeholder}",
-        "key_to_placeholder": {"placeholder": "placeholder_value"},
         "integer": 123,
         "list": [1, 2, 3],
         "dict": {"key1": "value1", "key2": "value2"},
         "path": Path("/path/to/somewhere"),
         "nested_dict": {"key1": {"subkey1": "subvalue1"}, "key2": "value2"},
     }
+@pytest.fixture
+def toml_string():
+    toml_string = """
+    [section.subsection]
+    key = 'value'
+    key2 = '{section.subsection.key}'
+    """
+    return '\n'.join([line.lstrip() for line in toml_string.splitlines()])
+

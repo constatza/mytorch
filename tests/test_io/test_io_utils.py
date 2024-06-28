@@ -1,10 +1,6 @@
 from mytorch.io.utils import *
 
 
-def test_find_placeholders_in_string(utils_dict):
-    result = find_placeholders_in_string(utils_dict["string"])
-    assert result == ["placeholder"]
-
 
 def test_read_toml(utils_dict, tmp_path):
     # Create a temporary toml file for testing
@@ -20,9 +16,9 @@ def test_apply_to_dict(utils_dict):
     assert result == {"key1": "VALUE1", "key2": "VALUE2"}
 
 
-def test_replace_placeholders(utils_dict):
-    result = replace_placeholders(utils_dict["string"], utils_dict)
-    assert result == "This is a string with a placeholder_value"
+def test_replace_placeholders_in_toml(toml_string):
+    result = replace_placeholders_in_toml(toml_string)
+    assert result.splitlines()[-1] == "key2 = 'value'"
 
 
 def test_join_root_with_paths(utils_dict):
