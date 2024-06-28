@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 from typing import Optional, Union
 
-from mytorch.networks.utils import smart_load_tensors
+from mytorch.io.utils import smart_load_tensors
 from mytorch.io.config import PathsInputConfig
 
 

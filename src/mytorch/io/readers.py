@@ -5,23 +5,14 @@ from pydantic import FilePath
 from pydantic import validate_call
 from datetime import datetime
 
-from mytorch.io.config import TrainingConfig, TestConfig, ModelConfig, PathsOutputConfig, PathsInputConfig, PathsRawConfig, PathsOutputConfig, ScenarioConfig
-from mytorch.io.utils import read_toml, join_root_with_paths, apply_to_dict, replace_placeholders
+from mytorch.io.config import TrainingConfig, TestConfig, ModelConfig, PathsInputConfig, PathsRawConfig, PathsOutputConfig, ScenarioConfig
+from mytorch.io.utils import read_toml, join_root_with_paths, apply_to_dict
 from mytorch.dataloaders import create_dataloaders_from_path_config
 
 type MaybeStr = str | None
 type MaybeInt = int | None
 type MaybeIntList = list[int] | int | None
 
-
-@validate_call
-def none_returns_none(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
-    def wrapper(arg: Any) -> Any | None:
-        if arg is None:
-            return None
-        else:
-            return func(arg)
-    return wrapper
 
 @validate_call
 def rm_none_from_dict_output(func: Callable[[Any], Dict]) -> Callable:
@@ -31,7 +22,7 @@ def rm_none_from_dict_output(func: Callable[[Any], Dict]) -> Callable:
         return {k: v for k, v in d.items() if v is not None}
     return wrapper
 
-@none_returns_none
+# @none_returns_none
 def import_module(name: MaybeStr) -> Any:
     """ Use importlib to import the model class from the model's module.
     Name is separated by dots to indicate the module and the class.
@@ -84,7 +75,6 @@ def get_model_config(d: Dict) -> ModelConfig:
     return ModelConfig(**import_if_necessary(d))
 
 def get_paths_config(paths: Dict) -> PathsOutputConfig:
-    paths = apply_to_dict(paths, replace_placeholders)
     paths = join_root_with_paths(paths)
     paths_input = get_paths_input_config(paths['input'])
     paths_raw = get_paths_raw_config(paths['raw'])

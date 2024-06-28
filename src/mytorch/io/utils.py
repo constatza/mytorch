@@ -1,12 +1,13 @@
 import re
-import tomli
+import ast
+from tomlkit import parse
 import torch
 import inspect
 import numpy as np
 from pathlib import Path
 from pydantic import validate_call, FilePath, DirectoryPath
 
-from typing import Dict, Union, ForwardRef, Any, Callable, TypeAlias
+from typing import Dict, Union, Any, Callable, Iterable
 from functools import partial
 
 
@@ -15,17 +16,42 @@ type PathDict = Dict[str, PathLike | PathDict]
 
 
 @validate_call
-def find_placeholders_in_string(string: str):
-    """Finds the placeholder in a string."""
-    return re.findall(r'\{([^}]*)\}', string)
+def read_toml(config_path: FilePath):
+    """Reads a toml configuration file."""
+    with open(config_path, 'r') as file:
+        content = file.read()
+    return parse(replace_placeholders_in_toml(content))
+
+@validate_call
+def replace_placeholders_in_toml(string: str) -> str:
+    """Uses re to replace placeholders in a toml string.
+    Placeholder format is {section.key} where {'section.key': 'value'}"""
+    mapping = parse(string)
+    flattened = flatten_dict(mapping)
+    return interpolate_placeholders(string, flattened)
 
 
 @validate_call
-def read_toml(config_path: FilePath):
-    """Reads a toml configuration file."""
-    with open(config_path, 'rb') as file:
-        dictionary = tomli.load(file)
-    return dictionary
+def interpolate_placeholders(text: str, replacement_dict: Dict[str, str]):
+    # Define a pattern that matches '{word}'
+    pattern = r'\{(.*)\}'
+
+    # Function to perform replacement
+    def replace_with_dict(match):
+        key = match.group(1)
+        if key in replacement_dict:
+            return replacement_dict[key]
+        else:
+            raise ValueError(f"Key {key} not found in configuration.")
+
+    # Perform substitution using re.sub() with a function
+    return re.sub(pattern, replace_with_dict, text)
+
+
+
+
+
+
 
 def apply_to_dict(original_dict: dict, func: Callable) -> dict:
     """Replaces placeholders marked from {} in a dictionary in a recursive way."""
@@ -37,12 +63,30 @@ def apply_to_dict(original_dict: dict, func: Callable) -> dict:
             original_dict[key] = value
     return original_dict
 
-def replace_placeholders(string: str, original_dict: str):
-    placeholders = find_placeholders_in_string(string)
-    for placeholder in placeholders:
-        string = string.replace(f"{{{placeholder}}}",
-                                find_in_dict(original_dict, placeholder))
-    return string
+
+
+@validate_call
+def flatten_dict(d: Dict, parent_key: str = '', sep: str = '.') -> Dict:
+    """
+    Flatten a nested dictionary while retaining keys.
+
+    Args:
+    - d: The input dictionary to flatten.
+    - parent_key (optional): The parent key for recursion. Default is ''.
+    - sep (optional): The separator between keys. Default is '.'.
+
+    Returns:
+    - dict: The flattened dictionary.
+    """
+    flattened = {}
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, Dict):
+            flattened.update(flatten_dict(v, parent_key=new_key, sep=sep).items())
+        else:
+            flattened[new_key] = v
+    return flattened
+
 
 
 def join_root_with_paths(paths_dict:  dict) -> dict:
@@ -63,12 +107,9 @@ def join_root_with_paths(paths_dict:  dict) -> dict:
     return joined_paths_dict
 
 
-
-
 def convert_path_dict_to_pathlib(d: dict) -> PathDict:
     """Converts paths in a dictionary to pathlib.Path objects."""
     return recursively_apply_to_dict(d, lambda x: Path(x))
-
 
 
 @validate_call
@@ -76,15 +117,6 @@ def find_placeholders_in_string(fstring: str):
     """Finds the placeholder in a string."""
     return re.findall(r'\{([^}]*)\}', fstring)
 
-replace_placeholders_in_dict = partial(apply_to_dict, func=replace_placeholders)
-
-def set_nested_dict_value(d, keys, value):
-    if len(keys) > 1:
-        key = keys.pop(0)
-        set_nested_dict_value(d[key], keys, value)
-    else:
-        d[keys[0]] = value
-        return d
 
 
 @validate_call
@@ -106,29 +138,6 @@ def get_nested_dict_value(d: dict, keys: Union[list, tuple], default="") -> Any:
     else:
         return d.get(keys[0], default)
 
-
-@validate_call
-def find_in_dict(d: dict, subkey: str, default="") -> Any:
-    """
-    Searches whole dict and returns the first value that matches the subkey.
-    """
-    for key, value in d.items():
-        if key == subkey:
-            return value
-        elif isinstance(value, dict):
-            result = find_in_dict(value, subkey)
-            if result:
-                return result
-    return default
-def to_tensor(func):
-    """Convert numpy array to tensor."""
-
-    def wrapper(*args, **kwargs):
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        new_args = tuple(torch.from_numpy(a).to(device) if not isinstance(a, torch.Tensor) else a for a in args)
-        return func(*new_args, **kwargs)
-
-    return wrapper
 
 def smart_load_tensors(path, convolutional_dims, **kwargs):
     """Load with either numpy or torch depending on file extension."""
@@ -170,10 +179,3 @@ def shape_correction(tensor, convolution_dims):
 def get_proper_convolution_shape(shape, convolution_dims):
     return shape[-convolution_dims-1:]
 
-def filtered(func):
-    def wrapper(*args, **kwargs):
-        params = inspect.signature(func).parameters
-        filtered = {k: v for k, v in kwargs.items() if k in params}
-        return func(*args, **filtered)
-
-    return wrapper
