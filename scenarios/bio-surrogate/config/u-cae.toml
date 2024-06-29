@@ -21,7 +21,7 @@ optimizer = "Adam"
 model = "LinearChannelDescentLatent1d_0.pt"
 
 [paths.input]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{name}"
+root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{scenario.name}"
 x-train = "./x_train_scaled.npy"
 x-test = "./x_test_scaled.npy"
 y-train = "./x_train_scaled.npy"
@@ -36,13 +36,15 @@ dataset = "./dataset.npy"
 latent = "./latent.npy"
 
 [paths.raw]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
+root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
 dofs = "./dofs/Udofs.txt"
 data = "./solutions500/porousSolutions.npy"
 
 [paths.output]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\output\\{name}\\"
-img = "./img/"
-models = "./models/"
-parameters = "./parameters/"
-figures = "./figures/"
+root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\output\\{scenario.name}\\"
+img-dir = "./img/"
+models-dir = "./models/"
+parameters-dir = "./parameters/"
+figures-dir = "./figures/"
+logs-dir = "./logs/"
+results-dir = "./results/"

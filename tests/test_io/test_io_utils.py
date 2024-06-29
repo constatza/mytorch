@@ -1,7 +1,6 @@
 from mytorch.io.utils import *
 
 
-
 def test_read_toml(utils_dict, tmp_path):
     # Create a temporary toml file for testing
     toml_file = tmp_path / "test.toml"
@@ -24,7 +23,10 @@ def test_replace_placeholders_in_toml(toml_string):
 def test_join_root_with_paths(utils_dict):
     paths_dict = {"root": utils_dict["path"], "other": "other/path"}
     result = join_root_with_paths(paths_dict)
-    assert result == {"root": utils_dict["path"], "other": utils_dict["path"] / "other/path"}
+    assert result == {
+        "root": utils_dict["path"],
+        "other": utils_dict["path"] / "other/path",
+    }
 
 
 def test_convert_path_dict_to_pathlib(utils_dict):

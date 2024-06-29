@@ -2,8 +2,6 @@ import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 
-from mytorch.networks.utils import to_tensor
-
 
 def reshaper(func):
     """Decorator that scales data with format (num_samples, num_channels, num_dofs, num_timesteps)."""
@@ -27,7 +25,6 @@ def reshaper(func):
     return wrapper
 
 
-@to_tensor
 def scale_timeseries(dataset, means=None, stds=None):
     """Scale the data using a standard scaler."""
     # Scale data
@@ -40,7 +37,6 @@ def scale_timeseries(dataset, means=None, stds=None):
     return (dataset - means) / stds, means, stds
 
 
-@to_tensor
 def unscale_timeseries(dataset, means, stds):
     """Unscale the data using a standard scaler."""
     # Unscale data
@@ -58,6 +54,7 @@ def format_data(solutions_path, dofs_to_keep_path):
     """Import the data from the path and keep only the dofs specified."""
     # Load the dofs to keep
     import os
+
     dirname = os.path.dirname(solutions_path)
     solutions = np.load(solutions_path).T
     # dofs to keep
@@ -67,7 +64,7 @@ def format_data(solutions_path, dofs_to_keep_path):
     solutions = solutions[:, :, :-8]
     solutions = solutions[:, dofs, :]
     solutions = solutions[:, np.newaxis, :, :]
-    np.save(os.path.join(dirname, 'formatted_solutions.npy'), solutions)
+    np.save(os.path.join(dirname, "formatted_solutions.npy"), solutions)
     print(solutions.shape)
     return solutions
 
