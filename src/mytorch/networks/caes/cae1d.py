@@ -1,10 +1,8 @@
 import numpy as np
 from torch import nn
 
-from utils import conv_out_repeated
+from mytorch.networks.utils import conv_out_repeated
 from .base import CAE
-from ..decoders import ConvDecoder1dFixed, ConvDecoder1dFixed2
-from ..encoders import ConvEncoder1dFixed, ConvEncoder1dFixed2
 
 
 class CAE1d(CAE):
@@ -33,8 +31,9 @@ class LinearChannelDescentLatent2d(CAE1d):
         self.num_layers = num_layers
         self.stride = 3
         self.padding = 1
-        self.num_reduced_time_steps = conv_out_repeated(input_shape[-1], kernel_size, self.stride,
-                                                        self.padding, num_reps=num_layers)
+        self.num_reduced_time_steps = conv_out_repeated(
+            input_shape[-1], kernel_size, self.stride, self.padding, num_reps=num_layers
+        )
         encoder = self.create_encoder()
         decoder = self.create_decoder()
         super(LinearChannelDescentLatent2d, self).__init__(encoder, decoder)
@@ -49,18 +48,38 @@ class LinearChannelDescentLatent2d(CAE1d):
         padding = self.padding
 
         # get channels as python integers, not numpy.in32
-        in_channels = np.linspace(dofs, self.latent_size, num_layers + 1).astype(int).tolist()
+        in_channels = (
+            np.linspace(dofs, self.latent_size, num_layers + 1).astype(int).tolist()
+        )
         self.in_channels = in_channels
 
         encoder = nn.ModuleList()
         # encoder.append(nn.BatchNorm1d(dofs, affine=False))
         for i in range(num_layers):
-            encoder.append(nn.Conv1d(in_channels[i], in_channels[i], kernel_size, stride, padding))
+            encoder.append(
+                nn.Conv1d(in_channels[i], in_channels[i], kernel_size, stride, padding)
+            )
             encoder.append(nn.GELU())
-            encoder.append(nn.Conv1d(in_channels[i], in_channels[i + 1], kernel_size=kernel_size, stride=1, padding='same'))
+            encoder.append(
+                nn.Conv1d(
+                    in_channels[i],
+                    in_channels[i + 1],
+                    kernel_size=kernel_size,
+                    stride=1,
+                    padding="same",
+                )
+            )
             encoder.append(nn.GELU())
 
-        encoder.append(nn.Conv1d(in_channels[-1], in_channels[-1], kernel_size=kernel_size, stride=1, padding='same'))
+        encoder.append(
+            nn.Conv1d(
+                in_channels[-1],
+                in_channels[-1],
+                kernel_size=kernel_size,
+                stride=1,
+                padding="same",
+            )
+        )
 
         encoder = nn.Sequential(*encoder)
         return encoder
@@ -79,16 +98,33 @@ class LinearChannelDescentLatent2d(CAE1d):
 
         for i in range(1, num_layers + 1):
             decoder.append(
-                nn.ConvTranspose1d(in_channels[-i], in_channels[-i], kernel_size, stride=stride,
-                                   padding=padding))
+                nn.ConvTranspose1d(
+                    in_channels[-i],
+                    in_channels[-i],
+                    kernel_size,
+                    stride=stride,
+                    padding=padding,
+                )
+            )
             decoder.append(nn.GELU())
             decoder.append(
-                nn.Conv1d(in_channels[-i], in_channels[-i - 1], kernel_size=kernel_size, stride=1, padding='same'))
+                nn.Conv1d(
+                    in_channels[-i],
+                    in_channels[-i - 1],
+                    kernel_size=kernel_size,
+                    stride=1,
+                    padding="same",
+                )
+            )
             decoder.append(nn.GELU())
 
-        decoder.append(nn.Conv1d(dofs, dofs, kernel_size, stride=1, padding=kernel_size))
+        decoder.append(
+            nn.Conv1d(dofs, dofs, kernel_size, stride=1, padding=kernel_size)
+        )
         decoder.append(nn.GELU())
-        decoder.append(nn.Conv1d(dofs, dofs, kernel_size=kernel_size, stride=1, padding='same'))
+        decoder.append(
+            nn.Conv1d(dofs, dofs, kernel_size=kernel_size, stride=1, padding="same")
+        )
         decoder = nn.Sequential(*decoder)
 
         return decoder
@@ -96,20 +132,28 @@ class LinearChannelDescentLatent2d(CAE1d):
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
-        x = x[:, :, :self.input_shape[-1]]
+        x = x[:, :, : self.input_shape[-1]]
         return x
 
 
 class LinearChannelDescentLatent1d(LinearChannelDescentLatent2d):
     def __init__(self, input_shape, latent_size=20, num_layers=4, kernel_size=5):
-        super(LinearChannelDescentLatent1d, self).__init__(input_shape, latent_size, num_layers, kernel_size)
+        super(LinearChannelDescentLatent1d, self).__init__(
+            input_shape, latent_size, num_layers, kernel_size
+        )
 
-        self.linear_encoder = nn.Linear(self.latent_size * self.num_reduced_time_steps, self.latent_size)
-        self.linear_decoder = nn.Linear(self.latent_size, self.latent_size * self.num_reduced_time_steps)
-        self.encoder = nn.Sequential(super(LinearChannelDescentLatent1d, self).encoder, self.linear_encoder)
-        self.decoder = nn.Sequential(self.linear_decoder, super(LinearChannelDescentLatent1d, self).decoder)
-
-
+        self.linear_encoder = nn.Linear(
+            self.latent_size * self.num_reduced_time_steps, self.latent_size
+        )
+        self.linear_decoder = nn.Linear(
+            self.latent_size, self.latent_size * self.num_reduced_time_steps
+        )
+        self.encoder = nn.Sequential(
+            super(LinearChannelDescentLatent1d, self).encoder, self.linear_encoder
+        )
+        self.decoder = nn.Sequential(
+            self.linear_decoder, super(LinearChannelDescentLatent1d, self).decoder
+        )
 
     def forward(self, x):
         x = self.encode(x)
@@ -126,5 +170,5 @@ class LinearChannelDescentLatent1d(LinearChannelDescentLatent2d):
         x = self.linear_decoder(x)
         x = x.view(x.size(0), self.latent_size, self.num_reduced_time_steps)
         x = self.decoder(x)
-        x = x[:, :, :self.input_shape[-1]]
+        x = x[:, :, : self.input_shape[-1]]
         return x

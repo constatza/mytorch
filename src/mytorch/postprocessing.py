@@ -1,19 +1,18 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import scienceplots
 
 
 def plot_losses(train_losses, val_losses):
     """Plot the training and validation losses."""
 
     fig, ax = plt.subplots()
-    ax.plot(train_losses, label='Training loss')
-    ax.plot(val_losses, label='Validation loss')
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('Loss')
+    ax.plot(train_losses, label="Training loss")
+    ax.plot(val_losses, label="Validation loss")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss")
     # set the scale to log
-    ax.set_yscale('log')
+    ax.set_yscale("log")
     ax.legend()
     return fig
 
@@ -29,9 +28,18 @@ def load_model(model, path):
     return model
 
 
-def plot_parametric_predictions(y_pred, y_true, title=None, x_label=None, y_label=None, parameter=None, plotter=None,
-                                show=True,
-                                kwargs_true=None, kwargs_pred=None):
+def plot_parametric_predictions(
+    y_pred,
+    y_true,
+    title=None,
+    x_label=None,
+    y_label=None,
+    parameter=None,
+    plotter=None,
+    show=True,
+    kwargs_true=None,
+    kwargs_pred=None,
+):
     """Plot the predictions of the model."""
     # set plt style to scientific
     if isinstance(y_pred, torch.Tensor):
@@ -40,25 +48,25 @@ def plot_parametric_predictions(y_pred, y_true, title=None, x_label=None, y_labe
         y_true = y_true.detach().cpu().numpy().squeeze()
 
     if title is None:
-        title = 'Model Fit'
+        title = "Model Fit"
     if parameter is None:
         parameter = np.arange(y_pred.shape[0])
     if x_label is None:
-        x_label = 'N'
+        x_label = "N"
     if y_label is None:
-        y_label = 'Output'
+        y_label = "Output"
     if kwargs_true is None:
-        kwargs_true = {'linestyle': '--'}
+        kwargs_true = {"linestyle": "--"}
     if kwargs_pred is None:
-        kwargs_pred = {'linestyle': '-'}
+        kwargs_pred = {"linestyle": "-"}
 
-    with plt.style.context('science'):
+    with plt.style.context("science"):
         fig, ax = plt.subplots(figsize=(8, 5))
         if plotter is None:
             plotter = ax.plot
 
-        plotter(parameter, y_true, label='True', **kwargs_true)
-        plotter(parameter, y_pred, label='Predicted', **kwargs_pred)
+        plotter(parameter, y_true, label="True", **kwargs_true)
+        plotter(parameter, y_pred, label="Predicted", **kwargs_pred)
         ax.set_title(title)
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)

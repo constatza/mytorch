@@ -1,9 +1,10 @@
-import torch
-from torch.utils.data import TensorDataset, DataLoader
 from typing import Optional, Union
 
-from mytorch.io.utils import smart_load_tensors
+import torch
+from torch.utils.data import TensorDataset, DataLoader
+
 from mytorch.io.config import PathsInputConfig
+from mytorch.io.utils import smart_load_tensors
 
 
 class OptionalTargetDataset(TensorDataset):
@@ -19,7 +20,9 @@ class OptionalTargetDataset(TensorDataset):
         is_autoencoder (bool): Indicates whether the dataset is for an autoencoder.
     """
 
-    def __init__(self, x_data: torch.Tensor, y_data: Optional[Union[torch.Tensor, None]] = None) -> None:
+    def __init__(
+        self, x_data: torch.Tensor, y_data: Optional[Union[torch.Tensor, None]] = None
+    ) -> None:
         """
         Initializes the dataset with the given input and target data.
 
@@ -60,7 +63,13 @@ class OptionalTargetDataset(TensorDataset):
         return self.x_data[idx], self.y_data[idx]
 
 
-def create_dataloaders(x_train: torch.Tensor, x_test: torch.Tensor, y_train=None, y_test=None, batch_size=32):
+def create_dataloaders(
+    x_train: torch.Tensor,
+    x_test: torch.Tensor,
+    y_train=None,
+    y_test=None,
+    batch_size=32,
+):
     """
     Creates PyTorch Dataloaders for the training and validation data.
 
@@ -81,9 +90,11 @@ def create_dataloaders(x_train: torch.Tensor, x_test: torch.Tensor, y_train=None
     dataloader_val = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     return dataloader_train, dataloader_val
 
-def create_dataloaders_from_path_config(paths_input_config: PathsInputConfig, convolution_dims: int):
-    """ get the train_loader and test_loader from the data and return them.
-    """
+
+def create_dataloaders_from_path_config(
+    paths_input_config: PathsInputConfig, convolution_dims: int
+):
+    """get the train_loader and test_loader from the data and return them."""
 
     x_train = paths_input_config.x_train
     x_test = paths_input_config.x_test
@@ -100,5 +111,7 @@ def create_dataloaders_from_path_config(paths_input_config: PathsInputConfig, co
         y_train = None
         y_test = None
 
-    dataloader_train, dataloader_val = create_dataloaders(x_train, x_test, y_train, y_test)
+    dataloader_train, dataloader_val = create_dataloaders(
+        x_train, x_test, y_train, y_test
+    )
     return dataloader_train, dataloader_val

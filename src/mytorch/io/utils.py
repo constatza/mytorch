@@ -1,26 +1,15 @@
 import re
-import ast
-from tomlkit import parse
-import torch
-import inspect
-import numpy as np
 from pathlib import Path
+from typing import Dict, Union, Any, Callable
+
+import numpy as np
+import torch
 from pydantic import validate_call, FilePath, DirectoryPath
-
-from typing import Dict, Union, Any, Callable, Iterable
-from functools import partial
-
+from tomlkit import parse
 
 type PathLike = FilePath | DirectoryPath | Path
 type PathDict = Dict[str, PathLike | PathDict]
 
-
-@validate_call
-def read_toml(config_path: FilePath):
-    """Reads a toml configuration file."""
-    with open(config_path, 'r') as file:
-        content = file.read()
-    return parse(replace_placeholders_in_toml(content))
 
 @validate_call
 def replace_placeholders_in_toml(string: str) -> str:
@@ -28,13 +17,14 @@ def replace_placeholders_in_toml(string: str) -> str:
     Placeholder format is {section.key} where {'section.key': 'value'}"""
     mapping = parse(string)
     flattened = flatten_dict(mapping)
-    return interpolate_placeholders(string, flattened)
+    final = interpolate_placeholders(string, flattened)
+    return final
 
 
 @validate_call
-def interpolate_placeholders(text: str, replacement_dict: Dict[str, str]):
+def interpolate_placeholders(text: str, replacement_dict: Dict[str, Any]):
     # Define a pattern that matches '{word}'
-    pattern = r'\{(.*)\}'
+    pattern = r"\{(.*)\}"
 
     # Function to perform replacement
     def replace_with_dict(match):
@@ -48,15 +38,11 @@ def interpolate_placeholders(text: str, replacement_dict: Dict[str, str]):
     return re.sub(pattern, replace_with_dict, text)
 
 
-
-
-
-
-
-def apply_to_dict(original_dict: dict, func: Callable) -> dict:
+@validate_call
+def apply_to_dict(original_dict: Dict, func: Callable) -> Dict:
     """Replaces placeholders marked from {} in a dictionary in a recursive way."""
     for key, value in original_dict.items():
-        if isinstance(value, dict):
+        if isinstance(value, Dict):
             original_dict[key] = apply_to_dict(value, func)
         elif isinstance(value, str):
             value = func(value, original_dict)
@@ -64,9 +50,8 @@ def apply_to_dict(original_dict: dict, func: Callable) -> dict:
     return original_dict
 
 
-
 @validate_call
-def flatten_dict(d: Dict, parent_key: str = '', sep: str = '.') -> Dict:
+def flatten_dict(d: Dict, parent_key: str = "", sep: str = ".") -> Dict:
     """
     Flatten a nested dictionary while retaining keys.
 
@@ -88,26 +73,32 @@ def flatten_dict(d: Dict, parent_key: str = '', sep: str = '.') -> Dict:
     return flattened
 
 
-
-def join_root_with_paths(paths_dict:  dict) -> dict:
+@validate_call
+def join_root_with_paths(paths_dict: Dict) -> Dict:
     """Joins the root path with the paths in the dictionary."""
     paths_dict = convert_path_dict_to_pathlib(paths_dict)
     # join all root paths with the same-level relative paths by using
     # apply_to_dict
-    if 'root' in paths_dict:
-        root = paths_dict['root']
-        joined_paths_dict = {k: root / v if k != 'root' else v for k, v in paths_dict.items()}
+    key_root = "root-dir"
+    if key_root in paths_dict:
+        root = paths_dict[key_root]
+        joined_paths_dict = {
+            k: root / v if k != key_root else v for k, v in paths_dict.items()
+        }
 
     else:
         joined_paths_dict = paths_dict.copy()
         for key, subdict in paths_dict.items():
-            root = subdict['root']
-            joined_paths_dict[key] = {k: root / v if k != 'root' else v for k, v in subdict.items()}
+            root = subdict[key_root]
+            joined_paths_dict[key] = {
+                k: root / v if k != key_root else v for k, v in subdict.items()
+            }
 
     return joined_paths_dict
 
 
-def convert_path_dict_to_pathlib(d: dict) -> PathDict:
+@validate_call
+def convert_path_dict_to_pathlib(d: Dict) -> PathDict:
     """Converts paths in a dictionary to pathlib.Path objects."""
     return recursively_apply_to_dict(d, lambda x: Path(x))
 
@@ -115,22 +106,23 @@ def convert_path_dict_to_pathlib(d: dict) -> PathDict:
 @validate_call
 def find_placeholders_in_string(fstring: str):
     """Finds the placeholder in a string."""
-    return re.findall(r'\{([^}]*)\}', fstring)
-
+    return re.findall(r"\{([^}]*)\}", fstring)
 
 
 @validate_call
-def recursively_apply_to_dict(d: PathDict,
-                              func: Callable[[PathLike], PathLike]) -> PathDict:
+def recursively_apply_to_dict(
+    d: PathDict, func: Callable[[PathLike], PathLike]
+) -> PathDict:
     for k, v in d.items():
-        if isinstance(v, dict):
+        if isinstance(v, Dict):
             recursively_apply_to_dict(v, func)
         else:
             d[k] = func(v)
     return d
 
+
 @validate_call
-def get_nested_dict_value(d: dict, keys: Union[list, tuple], default="") -> Any:
+def get_nested_dict_value(d: Dict, keys: Union[list, tuple], default="") -> Any:
     """Gets a value from a nested dictionary."""
     if len(keys) > 1:
         key = keys.pop(0)
@@ -139,22 +131,24 @@ def get_nested_dict_value(d: dict, keys: Union[list, tuple], default="") -> Any:
         return d.get(keys[0], default)
 
 
-def smart_load_tensors(path, convolutional_dims, **kwargs):
+@validate_call
+def smart_load_tensors(path: FilePath, convolutional_dims: int, **kwargs):
     """Load with either numpy or torch depending on file extension."""
-    if path.endswith('.pt'):
+    if path.suffix == ".pt":
         tensor = torch.load(path, **kwargs)
-    elif path.endswith('.npy'):
+    elif path.suffix == ".npy":
         tensor = np.load(path, **kwargs)
-    elif path.endswith('.csv'):
-        tensor = np.loadtxt(path, delimiter=',', **kwargs)
+    elif path.suffix == ".csv":
+        tensor = np.loadtxt(path, delimiter=",", **kwargs)
     else:
-        raise ValueError('Invalid file extension. Must be either .npy or .pt.')
+        raise ValueError("Invalid file extension. Must be either .npy or .pt.")
 
     if isinstance(tensor, np.ndarray):
         # Sometimes even files with .pt extension are loaded as numpy arrays
         tensor = torch.from_numpy(tensor).float()
 
     return shape_correction(tensor, convolutional_dims)
+
 
 def shape_correction(tensor, convolution_dims):
     """
@@ -176,6 +170,6 @@ def shape_correction(tensor, convolution_dims):
         assert shape_dims == convolution_dims + 2
     return tensor
 
-def get_proper_convolution_shape(shape, convolution_dims):
-    return shape[-convolution_dims-1:]
 
+def get_proper_convolution_shape(shape, convolution_dims):
+    return shape[-convolution_dims - 1 :]

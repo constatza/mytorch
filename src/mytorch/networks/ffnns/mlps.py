@@ -2,7 +2,14 @@ import torch.nn as nn
 
 
 class ConstantHiddenSizeFFNN(nn.Module):
-    def __init__(self, input_size=None, output_size=None, hidden_layers=None, hidden_size=None, activation=nn.Sigmoid):
+    def __init__(
+        self,
+        input_size=None,
+        output_size=None,
+        hidden_layers=None,
+        hidden_size=None,
+        activation=nn.Sigmoid,
+    ):
         super(ConstantHiddenSizeFFNN, self).__init__()
 
         self.input_size = input_size

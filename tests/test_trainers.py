@@ -1,11 +1,13 @@
 import pytest
 import torch
-from torch.optim import SGD
 from torch.nn import MSELoss
+from torch.optim import SGD
 from torch.utils.data import DataLoader
-from mytorch.trainers import Trainer, AutoEncoderTrainer
+
 from mytorch.io.config import TrainingConfig
 from mytorch.io.loggers import ProgressLogger
+from mytorch.trainers import Trainer, AutoEncoderTrainer
+
 
 # Define pytest fixtures for the common setup code
 @pytest.fixture
@@ -20,16 +22,19 @@ def mock_model():
 
     return MockModel()
 
+
 @pytest.fixture
 def mock_dataloader():
     x = torch.randn(10, 1)
     y = torch.randn(10, 1)
     return DataLoader(list(zip(x, y)), batch_size=2)
 
+
 @pytest.fixture
 def mock_dataloader_input_only():
     x = torch.randn(10, 1)
     return DataLoader(x, batch_size=2)
+
 
 @pytest.fixture
 def training_config(mock_model, mock_dataloader):
@@ -41,11 +46,11 @@ def training_config(mock_model, mock_dataloader):
         test_loader=mock_dataloader,
         num_epochs=5,
         batch_size=2,
-        device=torch.device('cpu'),
+        device=torch.device("cpu"),
         logger=ProgressLogger(console=False),
-        unique_id='1234',
-
+        unique_id="1234",
     )
+
 
 @pytest.fixture
 def training_config_autoencoder(mock_model, mock_dataloader_input_only):
@@ -57,10 +62,11 @@ def training_config_autoencoder(mock_model, mock_dataloader_input_only):
         test_loader=mock_dataloader_input_only,
         num_epochs=5,
         batch_size=2,
-        device=torch.device('cpu'),
-        logger= ProgressLogger(console=False),
-        unique_id='1234'
+        device=torch.device("cpu"),
+        logger=ProgressLogger(console=False),
+        unique_id="1234",
     )
+
 
 # Use the fixtures in the tests
 def test_Trainer(training_config):
@@ -71,6 +77,7 @@ def test_Trainer(training_config):
     assert trainer.train_loader == training_config.train_loader
     assert trainer.test_loader == training_config.test_loader
 
+
 def test_AutoEncoderTrainer(training_config_autoencoder):
     trainer = AutoEncoderTrainer(config=training_config_autoencoder)
     assert trainer.model == training_config_autoencoder.model
@@ -78,6 +85,7 @@ def test_AutoEncoderTrainer(training_config_autoencoder):
     assert trainer.criterion == training_config_autoencoder.criterion
     assert trainer.train_loader == training_config_autoencoder.train_loader
     assert trainer.test_loader == training_config_autoencoder.test_loader
+
 
 # Test the training capabilities of the Trainer class
 def test_Trainer_train(training_config):
