@@ -1,21 +1,21 @@
 from pathlib import Path
-from typing import Optional, Union, List, Callable
+from typing import Annotated, Optional
 
 import torch
+from optuna import Trial
 from pydantic import (
     BaseModel,
-    DirectoryPath,
     FilePath,
     Field,
     field_validator,
-    validate_call,
 )
 
-from mytorch.io.loggers import ProgressLogger, TrainLogger
-
-MaybeIntList = Union[int, List[int]]
-MaybeFloatList = Union[float, List[float]]
-MaybeStrList = Union[str, List[str]]
+from mytorch.io.loggers import TrainLogger
+from mytorch.mytypes import (
+    ListLike,
+    CreateIfNotExistsDir,
+    Maybe,
+)
 
 
 class BasicConfig(BaseModel):
@@ -30,26 +30,8 @@ class BasicConfig(BaseModel):
             return field_name.lower().strip().replace("_", "-")
 
 
-@validate_call
-def ensure_dir_exists(p: Path):
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-class ModelConfig(BasicConfig):
-    model: type(torch.nn.Module)  # The model to be trained
-    kernel_size: Optional[MaybeIntList] = None
-    num_layers: Optional[MaybeIntList] = None
-    latent_size: Optional[MaybeIntList] = None
-    hidden_size: Optional[MaybeIntList] = None
-
-
-class TestConfig(BasicConfig):
-    model: MaybeStrList
-
-
 class PathsInputConfig(BasicConfig):
-    root_dir: DirectoryPath
+    root_dir: CreateIfNotExistsDir
     x_train: FilePath
     y_train: FilePath
     x_test: FilePath
@@ -59,34 +41,23 @@ class PathsInputConfig(BasicConfig):
     dataset: Optional[FilePath]
     latent: Optional[FilePath]
 
-    _dir_validator = field_validator("root_dir", mode="before")(ensure_dir_exists)
-
 
 class PathsRawConfig(BasicConfig):
-    root_dir: Optional[DirectoryPath] = None
+    class Config:
+        extra = "allow"
+
+    root_dir: Optional[CreateIfNotExistsDir] = None
     dataset: Optional[Path] = None
     dofs: Optional[Path] = None
 
-    _dir_validator = field_validator("root_dir", mode="before")(ensure_dir_exists)
-
 
 class PathsOutputConfig(BasicConfig):
-    root_dir: DirectoryPath
-    figures_dir: Optional[DirectoryPath]
-    models_dir: Optional[DirectoryPath]
-    logs_dir: Optional[DirectoryPath]
-    results_dir: Optional[DirectoryPath]
-    parameters_dir: Optional[DirectoryPath]
-
-    _dir_validator = field_validator(
-        "root_dir",
-        "figures_dir",
-        "models_dir",
-        "logs_dir",
-        "results_dir",
-        "parameters_dir",
-        mode="before",
-    )(ensure_dir_exists)
+    root_dir: CreateIfNotExistsDir
+    figures_dir: Optional[CreateIfNotExistsDir]
+    models_dir: Optional[CreateIfNotExistsDir]
+    logs_dir: Optional[CreateIfNotExistsDir]
+    results_dir: Optional[CreateIfNotExistsDir]
+    parameters_dir: Optional[CreateIfNotExistsDir]
 
 
 class PathsConfig(BasicConfig):
@@ -95,34 +66,64 @@ class PathsConfig(BasicConfig):
     output: PathsOutputConfig
 
 
+class EstimatorsConfig(BasicConfig):
+    model: ListLike[str]
+    input_shape: Annotated[
+        ListLike, Field(min_length=1, max_length=4)
+    ]  # The shape of the input data
+    convolution_dims: Annotated[int, Field(..., ge=0, le=2)]
+    kernel_size: Optional[ListLike[int]] = None
+    num_layers: Optional[ListLike[int]] = None
+    latent_size: Optional[ListLike[int]] = None
+    hidden_size: Optional[ListLike[int]] = None
+
+
 class TrainingConfig(BasicConfig):
     train_loader: torch.utils.data.DataLoader  # The DataLoader for the training data
     test_loader: torch.utils.data.DataLoader  # The DataLoader for the test data
-    num_epochs: MaybeIntList  # The number of epochs for training
-    batch_size: MaybeIntList  # The batch size for training
-    optimizer: Optional[Callable[..., torch.optim.Optimizer]] = torch.optim.Adam
-    criterion: Optional[Callable[..., torch.nn.modules.loss._Loss]] = (
-        torch.nn.MSELoss
-    )  # The loss function
-    learning_rate: Optional[MaybeFloatList] = Field(
-        default=1e-3, alias="lr"
-    )  # The learning rate for training
+    num_epochs: ListLike[int] = 100  # The number of epochs for training
+    batch_size: ListLike[int] = 32  # The batch size for training
+    optimizer: ListLike[str] = "Adam"
+    criterion: ListLike[str] = "MSELoss"
+    learning_rate: ListLike[float] = 1e-3
     device: Optional[torch.device] = (
         "cuda" if torch.cuda.is_available() else "cpu"
     )  # The device to train on (e.g., 'cpu' or 'cuda')
-    logger: Optional[TrainLogger] = ProgressLogger(
-        console=True
-    )  # The logger for training
 
 
-class ScenarioConfig(BasicConfig):
+class StudyConfig(BasicConfig):
     class Config:
         extra = "ignore"
 
-    name: str
-    model: ModelConfig
+    name: Optional[str] = None
     training: TrainingConfig
-    test: TestConfig
+    estimators: EstimatorsConfig
     paths: PathsConfig
     description: Optional[str]
     variable: Optional[str]
+    logger: Optional[TrainLogger] = "progress"
+    delete_old: Optional[bool]
+
+    @field_validator("name", mode="after")
+    def validate_name(cls, v: Maybe[str]) -> str:
+        """Get the name from the dictionary or return the default value
+        of datetime.now() as str
+        """
+        from datetime import datetime
+
+        return v if v else datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+
+class TrainerConfig(BasicConfig):
+    trial: Trial
+    model: torch.nn.Module
+    train_loader: torch.utils.data.DataLoader
+    test_loader: torch.utils.data.DataLoader
+    criterion: torch.nn.modules.loss._Loss
+    optimizer: type(torch.optim.Optimizer)
+    device: torch.device
+    learning_rate: float
+    logger: TrainLogger
+    models_dir: Path
+    num_epochs: int
+    delete_old: bool

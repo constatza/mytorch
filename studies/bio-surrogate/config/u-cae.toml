@@ -1,35 +1,34 @@
-[scenario]
+[study]
 name = "u-problem"
 description = "diplacements from porous media flow"
 variable = "U"
-convolution-dims = 1
 delete-old = true
+logger = "progress"
+num-trials = 3
 
 [model]
-name = "caes.LinearChannelDescentLatent1d"
-kernel-size = [5, 7]
+name = "caes.LinearChannelDescentVAE"
+#name = "caes.LinearChannelDescentLatent1d"
+kernel-size = [7]
 num-layers = [4]
-latent-size = [3]
+latent-size = [3, 6, 9]
+convolution-dims = 1
 
 [training]
 batch-size = [32]
 learning-rate = [2e-4]
-num-epochs = 2000
+num-epochs = 300
 optimizer = "Adam"
+criterion = "MSELoss"
 
 [test]
-model = "LinearChannelDescentLatent1d_0.pt"
 
 [paths.input]
-root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{scenario.name}"
+root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{study.name}"
 x-train = "./x_train_scaled.npy"
 x-test = "./x_test_scaled.npy"
 y-train = "./x_train_scaled.npy"
 y-test = "./x_test_scaled.npy"
-#x-train = "./x_train.npy"
-#x-test = "./x_test.npy"
-#y-train = "./x_train.npy"
-#y-test = "./x_test.npy"
 means = "./means.npy"
 stds = "./stds.npy"
 dataset = "./dataset.npy"
@@ -41,7 +40,7 @@ dofs = "./dofs/Udofs.txt"
 data = "./solutions500/porousSolutions.npy"
 
 [paths.output]
-root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\output\\{scenario.name}\\"
+root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\output\\{study.name}\\"
 img-dir = "./img/"
 models-dir = "./models/"
 parameters-dir = "./parameters/"

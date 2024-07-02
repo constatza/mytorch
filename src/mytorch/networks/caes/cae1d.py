@@ -1,8 +1,12 @@
+from typing import Tuple, List
+
 import numpy as np
 from torch import nn
 
 from mytorch.networks.utils import conv_out_repeated
 from .base import CAE
+
+ListLike = Tuple | List
 
 
 class CAE1d(CAE):
@@ -24,7 +28,13 @@ class CAE1d(CAE):
 
 
 class LinearChannelDescentLatent2d(CAE1d):
-    def __init__(self, input_shape, latent_size=20, num_layers=4, kernel_size=5):
+    def __init__(
+        self,
+        input_shape: ListLike,
+        latent_size: int = 20,
+        num_layers: int = 4,
+        kernel_size: int = 5,
+    ):
         self.input_shape = input_shape
         self.latent_size = latent_size
         self.kernel_size = kernel_size
@@ -37,6 +47,8 @@ class LinearChannelDescentLatent2d(CAE1d):
         encoder = self.create_encoder()
         decoder = self.create_decoder()
         super(LinearChannelDescentLatent2d, self).__init__(encoder, decoder)
+        self.encoder = encoder
+        self.decoder = decoder
 
     def create_encoder(self):
         input_shape = self.input_shape
@@ -148,17 +160,8 @@ class LinearChannelDescentLatent1d(LinearChannelDescentLatent2d):
         self.linear_decoder = nn.Linear(
             self.latent_size, self.latent_size * self.num_reduced_time_steps
         )
-        self.encoder = nn.Sequential(
-            super(LinearChannelDescentLatent1d, self).encoder, self.linear_encoder
-        )
-        self.decoder = nn.Sequential(
-            self.linear_decoder, super(LinearChannelDescentLatent1d, self).decoder
-        )
-
-    def forward(self, x):
-        x = self.encode(x)
-        x = self.decode(x)
-        return x
+        # self.encoder = nn.Sequential(self.encoder, self.linear_encoder)
+        # self.decoder = nn.Sequential(self.linear_decoder, self.decoder)
 
     def encode(self, x):
         x = self.encoder(x)

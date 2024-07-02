@@ -1,8 +1,7 @@
 import importlib
 import uuid
 from builtins import dict
-from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 from pydantic import FilePath
 from pydantic import validate_call
@@ -11,67 +10,46 @@ from tomlkit import parse
 from mytorch.dataloaders import create_dataloaders_from_path_config
 from mytorch.io.config import (
     TrainingConfig,
-    TestConfig,
-    ModelConfig,
+    EstimatorsConfig,
     PathsInputConfig,
     PathsRawConfig,
     PathsOutputConfig,
-    ScenarioConfig,
+    StudyConfig,
     PathsConfig,
 )
+from mytorch.io.loggers import train_logger_factory
 from mytorch.io.utils import join_root_with_paths, replace_placeholders_in_toml
-
-type MaybeStr = str | None
-type MaybeInt = int | None
-type MaybeIntList = list[int] | int | None
+from mytorch.mytypes import Maybe
 
 
 @validate_call
-def import_module(name: MaybeStr) -> Any:
+def import_module(name: Maybe[str]) -> Any:
     """Use importlib to import the model class from the model's module.
     Name is separated by dots to indicate the module and the class.
     """
+    if name is None:
+        return None
     module_name, class_name = name.rsplit(".", 1)
     module = importlib.import_module(module_name)
     return getattr(module, class_name)
 
 
 @validate_call
-def import_if_necessary(data: Dict) -> Dict:
-    transformed = data.copy()
-    source_module = {
-        "optimizer": "torch.optim.",
-        "criterion": "torch.nn.",
-        "logger": "mytorch.io.loggers.",
-        "trainer": "mytorch.trainers.",
-        "model": "mytorch.networks.",
-        "name": "mytorch.networks.",
-    }
-    for key, module in source_module.items():
-        if key in transformed:
-            transformed[key] = import_module(module + transformed[key])
-    return transformed
-
-
-@validate_call
-def get_name(d: Dict) -> str:
-    """Get the name from the dictionary or return the default value
-    of datetime.now() as str
-    """
-    return d.get("name", datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
-
-
-@validate_call
 def get_training_config(
-    d: Dict, paths_input_config: PathsInputConfig, convolution_dims: int
+    d: Dict,
+    paths_input_config: PathsInputConfig,
+    convolution_dims: int,
 ) -> TrainingConfig:
-    transformed = import_if_necessary(d)
     train_loader, test_loader = create_dataloaders_from_path_config(
-        paths_input_config, convolution_dims
+        paths_input_config.x_train,
+        paths_input_config.x_test,
+        paths_input_config.y_train,
+        paths_input_config.y_test,
+        convolution_dims,
     )
     unique_id = uuid.uuid4()
     return TrainingConfig(
-        **transformed,
+        **d,
         train_loader=train_loader,
         test_loader=test_loader,
         unique_id=unique_id,
@@ -79,15 +57,9 @@ def get_training_config(
 
 
 @validate_call
-def get_test_config(d: Dict) -> TestConfig:
-    return TestConfig(**d)
-
-
-@validate_call
-def get_model_config(d: Dict) -> ModelConfig:
-    d = import_if_necessary(d)
+def get_model_config(d: Dict, input_shape: Tuple) -> EstimatorsConfig:
     d["model"] = d["name"]
-    return ModelConfig(**d)
+    return EstimatorsConfig(input_shape=input_shape, **d)
 
 
 @validate_call
@@ -115,24 +87,44 @@ def get_paths_output_config(d: Dict) -> PathsOutputConfig:
 
 
 @validate_call
-def get_scenario_config(config: Dict[str, Any]) -> ScenarioConfig:
-    name = get_name(config["scenario"])
-    description = config["scenario"].get("description", None)
-    variable = config["scenario"].get("variable", None)
+def get_study_config(config: Dict[str, Any]) -> StudyConfig:
+    name = config["study"].get("name", None)
+    description = config["study"].get("description", None)
+    variable = config["study"].get("variable", None)
     paths = get_paths_config(config["paths"])
-    model = get_model_config(config["model"])
     training = get_training_config(
-        config["training"], paths.input, config["scenario"]["convolution-dims"]
+        config["training"],
+        paths.input,
+        config["model"]["convolution-dims"],
     )
-    test = get_test_config(config["test"])
-    return ScenarioConfig(
+    model = get_model_config(
+        config["model"], tuple(training.train_loader.dataset[0][0].shape)
+    )
+    logger_type = config["study"]["logger"]
+    logs_dir = paths.output.logs_dir
+    logger = train_logger_factory(
+        logger_type,
+        history_fiel=logs_dir / f"{name}.log",
+        error_file=logs_dir / f"{name}.err",
+        console=True,
+    )
+    delete_old = config["study"]["delete-old"]
+    if delete_old:
+        delete_old = input(f"Are you sure you want to delete old study data? (y/N): ")
+    if delete_old.lower() in ["y", "yes"]:
+        delete_old = True
+    else:
+        delete_old = False
+
+    return StudyConfig(
         name=name,
+        estimators=model,
+        training=training,
         description=description,
         variable=variable,
         paths=paths,
-        model=model,
-        training=training,
-        test=test,
+        logger=logger,
+        delete_old=delete_old,
     )
 
 
@@ -145,7 +137,7 @@ def read_toml(config_path: FilePath) -> Dict:
 
 
 @validate_call
-def read_scenario(config_path: FilePath) -> ScenarioConfig:
+def read_study(config_path: FilePath) -> StudyConfig:
     config: Dict = read_toml(config_path)
-    config: Dict = get_scenario_config(config)
+    config: Dict = get_study_config(config)
     return config

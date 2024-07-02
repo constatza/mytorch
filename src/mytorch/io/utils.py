@@ -1,14 +1,14 @@
 import re
+from functools import reduce
 from pathlib import Path
 from typing import Dict, Union, Any, Callable
 
 import numpy as np
 import torch
-from pydantic import validate_call, FilePath, DirectoryPath
+from pydantic import validate_call, FilePath
 from tomlkit import parse
 
-type PathLike = FilePath | DirectoryPath | Path
-type PathDict = Dict[str, PathLike | PathDict]
+from mytorch.mytypes import PathLike, PathDict
 
 
 @validate_call
@@ -78,9 +78,12 @@ def join_root_with_paths(paths_dict: Dict) -> Dict:
     """Joins the root path with the paths in the dictionary."""
     paths_dict = convert_path_dict_to_pathlib(paths_dict)
     # join all root paths with the same-level relative paths by using
-    # apply_to_dict
-    key_root = "root-dir"
-    if key_root in paths_dict:
+    # root is contained in either the first or second level of the dictionary
+    # find where the root is and join same-level paths with it
+
+    key_root = reduce(lambda x, y: x if ("root" in x) else y, paths_dict)
+
+    if "root" in key_root:
         root = paths_dict[key_root]
         joined_paths_dict = {
             k: root / v if k != key_root else v for k, v in paths_dict.items()
@@ -89,6 +92,7 @@ def join_root_with_paths(paths_dict: Dict) -> Dict:
     else:
         joined_paths_dict = paths_dict.copy()
         for key, subdict in paths_dict.items():
+            key_root = reduce(lambda x, y: x if ("root" in x) else y, subdict)
             root = subdict[key_root]
             joined_paths_dict[key] = {
                 k: root / v if k != key_root else v for k, v in subdict.items()
@@ -169,7 +173,3 @@ def shape_correction(tensor, convolution_dims):
     if shape_dims > 2:
         assert shape_dims == convolution_dims + 2
     return tensor
-
-
-def get_proper_convolution_shape(shape, convolution_dims):
-    return shape[-convolution_dims - 1 :]
