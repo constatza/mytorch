@@ -1,17 +1,21 @@
 import logging
 from pathlib import Path
-from typing import Optional, Union, List, Tuple
+from typing import Optional
 
-import numpy as np
 import torch
-from pydantic import BaseModel
-from pydantic import PositiveInt
+from pydantic import validate_call, BaseModel, PositiveInt
 
-ArrayLike = Union[List, torch.Tensor, np.ndarray, Tuple]
+from mytorch.mytypes import ArrayLike, Maybe
 
 
-def get_logger(history_file=None, error_file=None, console=False) -> logging.Logger:
-    logger = logging.getLogger("train")
+@validate_call
+def get_logger(
+    name: str = "",
+    history_file: Maybe[Path] = None,
+    error_file: Maybe[Path] = None,
+    console: bool = True,
+) -> logging.Logger:
+    logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
     if history_file:

@@ -9,6 +9,11 @@ packages = [
 ]
 
 
+[[tool.poetry.source]]
+name = "pytorch_gpu"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -16,13 +21,15 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-numpy = "^2.0.0"
-pydantic = "^2.7.4"
-torch = "^2.3.1"
+numpy = "^1"
 pathlib = "^1.0.1"
 
 
 tomlkit = "^0.12.5"
+optuna = "^3.6.1"
+pydantic = "^2.7.4"
+torch = {version = "^2.3.1+cu118", source = "pytorch_gpu"}
+plotly = "^5.22.0"
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
 

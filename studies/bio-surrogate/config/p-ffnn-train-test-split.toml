@@ -1,4 +1,4 @@
-[scenario]
+[study]
 name = "p-problem-ffnn-train-test"
 source = "p-problem"
 description = "split the data into train and test sets"

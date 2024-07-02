@@ -1,6 +1,6 @@
-[scenario]
+[study]
 name = "p-problem-ffnn"
-source="p-problem-ffnn-train-test"
+source = "p-problem-ffnn-train-test"
 description = "feedforward neural network for the porous media problem"
 
 [model]
