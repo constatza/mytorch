@@ -1,81 +1,132 @@
 from typing import Tuple, List
 
 import numpy as np
+import torch
+from torch import Size
 from torch import nn
 
-from mytorch.networks.utils import conv_out_repeated
-from .base import CAE
+from mytorch.networks.caes.base import CAE
 
-ListLike = Tuple | List
+ShapeLike = Tuple | List | Size
 
 
 class CAE1d(CAE):
-    def __init__(self, encoder, decoder):
+    def __init__(
+        self,
+        encoder,
+        decoder,
+        activation: nn.functional = nn.functional.gelu,
+        lr: float = 1e-3,
+    ):
+        self.save_hyperparameters(ignore=["encoder", "decoder"])
         super(CAE1d, self).__init__(encoder, decoder)
-        # print summary of the model with torchsummary
+        self.activation = activation
 
     def forward(self, x):
         x = x.squeeze(1)
-        return super(CAE1d, self).forward(x).unsqueeze(1)
+        x = self.encode(x)
+        x = self.decode(x)
+        return x
 
     def encode(self, x):
         x = x.squeeze(1)
-        return super(CAE1d, self).encode(x).unsqueeze(1)
+        return self.encoder(x)
 
     def decode(self, x):
         x = x.squeeze(1)
-        return super(CAE1d, self).decode(x).unsqueeze(1)
+        x = self.decoder(x)
+        return x
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=0.5,
+            patience=10,
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                "frequency": 1,
+            },
+        }
 
 
 class LinearChannelDescentLatent2d(CAE1d):
     def __init__(
         self,
-        input_shape: ListLike,
-        latent_size: int = 20,
+        input_shape: ShapeLike,
+        reduced_channels: int = 10,
+        reduced_timesteps: int = 5,
         num_layers: int = 4,
         kernel_size: int = 5,
+        lr: float = 1e-3,
+        activation: nn.functional = nn.functional.gelu,
     ):
-        self.input_shape = input_shape
-        self.latent_size = latent_size
-        self.kernel_size = kernel_size
-        self.num_layers = num_layers
-        self.stride = 3
-        self.padding = 1
-        self.num_reduced_time_steps = conv_out_repeated(
-            input_shape[-1], kernel_size, self.stride, self.padding, num_reps=num_layers
+        self.save_hyperparameters(ignore="activation")
+        self.activation = activation
+        # lightining test tensor to print the network shapes
+        self.example_input_array = torch.randn(input_shape)
+
+        channels = (
+            np.linspace(input_shape[-2], reduced_channels, num_layers + 1)
+            .astype(int)
+            .tolist()
         )
-        encoder = self.create_encoder()
-        decoder = self.create_decoder()
+
+        timesteps = (
+            np.linspace(input_shape[-1], reduced_timesteps, num_layers + 1)
+            .astype(int)
+            .tolist()
+        )
+
+        encoder = self.create_encoder(
+            channels,
+            num_layers,
+            kernel_size,
+            timesteps=timesteps,
+        )
+        decoder = self.create_decoder(
+            channels,
+            num_layers,
+            kernel_size,
+            timesteps=timesteps,
+            input_shape=input_shape,
+        )
         super(LinearChannelDescentLatent2d, self).__init__(encoder, decoder)
-        self.encoder = encoder
-        self.decoder = decoder
 
-    def create_encoder(self):
-        input_shape = self.input_shape
-        num_layers = self.num_layers
-        dofs = input_shape[0]
-
-        kernel_size = self.kernel_size
-        stride = self.stride
-        padding = self.padding
-
-        # get channels as python integers, not numpy.in32
-        in_channels = (
-            np.linspace(dofs, self.latent_size, num_layers + 1).astype(int).tolist()
-        )
-        self.in_channels = in_channels
+    @staticmethod
+    def create_encoder(
+        channels: List[int],
+        num_layers: int,
+        kernel_size: int,
+        timesteps: List[int],
+    ):
 
         encoder = nn.ModuleList()
-        # encoder.append(nn.BatchNorm1d(dofs, affine=False))
+
         for i in range(num_layers):
             encoder.append(
-                nn.Conv1d(in_channels[i], in_channels[i], kernel_size, stride, padding)
+                nn.Conv1d(
+                    channels[i],
+                    channels[i],
+                    kernel_size,
+                    stride=1,
+                    padding="same",
+                )
             )
             encoder.append(nn.GELU())
+            if timesteps[-1] < timesteps[0]:
+                encoder.append(nn.AdaptiveMaxPool1d(timesteps[i + 1]))
+                encoder.append(nn.GELU())
+
             encoder.append(
                 nn.Conv1d(
-                    in_channels[i],
-                    in_channels[i + 1],
+                    channels[i],
+                    channels[i + 1],
                     kernel_size=kernel_size,
                     stride=1,
                     padding="same",
@@ -85,8 +136,8 @@ class LinearChannelDescentLatent2d(CAE1d):
 
         encoder.append(
             nn.Conv1d(
-                in_channels[-1],
-                in_channels[-1],
+                channels[-1],
+                channels[-1],
                 kernel_size=kernel_size,
                 stride=1,
                 padding="same",
@@ -96,82 +147,135 @@ class LinearChannelDescentLatent2d(CAE1d):
         encoder = nn.Sequential(*encoder)
         return encoder
 
-    def create_decoder(self):
-        input_shape = self.input_shape
-        num_layers = self.num_layers
-        kernel_size = self.kernel_size
-        stride = self.stride
-        padding = self.padding
-        in_channels = self.in_channels
+    @staticmethod
+    def create_decoder(
+        channels: List[int],
+        num_layers: int,
+        kernel_size: int,
+        timesteps: List[int],
+        input_shape: ShapeLike,
+    ):
 
-        dofs = input_shape[0]
+        dofs = input_shape[-2]
+        channels.reverse()
+        timesteps.reverse()
 
         decoder = nn.ModuleList()
 
-        for i in range(1, num_layers + 1):
-            decoder.append(
-                nn.ConvTranspose1d(
-                    in_channels[-i],
-                    in_channels[-i],
-                    kernel_size,
-                    stride=stride,
-                    padding=padding,
-                )
-            )
+        for i in range(num_layers):
             decoder.append(nn.GELU())
             decoder.append(
                 nn.Conv1d(
-                    in_channels[-i],
-                    in_channels[-i - 1],
+                    channels[i], channels[i], kernel_size, stride=1, padding="same"
+                )
+            )
+            decoder.append(nn.GELU())
+            if timesteps[-1] > timesteps[0]:
+                decoder.append(nn.AdaptiveAvgPool1d(timesteps[i + 1]))
+                decoder.append(nn.GELU())
+
+            decoder.append(
+                nn.Conv1d(
+                    channels[i],
+                    channels[i + 1],
                     kernel_size=kernel_size,
                     stride=1,
                     padding="same",
                 )
             )
-            decoder.append(nn.GELU())
 
-        decoder.append(
-            nn.Conv1d(dofs, dofs, kernel_size, stride=1, padding=kernel_size)
-        )
         decoder.append(nn.GELU())
         decoder.append(
             nn.Conv1d(dofs, dofs, kernel_size=kernel_size, stride=1, padding="same")
         )
+
         decoder = nn.Sequential(*decoder)
 
         return decoder
 
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        x = x[:, :, : self.input_shape[-1]]
-        return x
+    def decode(self, x):
+        return super(LinearChannelDescentLatent2d, self).decode(x)[
+            ..., : self.hparams.input_shape[-1]
+        ]
 
 
 class LinearChannelDescentLatent1d(LinearChannelDescentLatent2d):
-    def __init__(self, input_shape, latent_size=20, num_layers=4, kernel_size=5):
-        super(LinearChannelDescentLatent1d, self).__init__(
-            input_shape, latent_size, num_layers, kernel_size
-        )
+    def __init__(self, *args, **kwargs):
+        self.save_hyperparameters()
+        _ = kwargs.pop("latent_size", None)
+        super(LinearChannelDescentLatent1d, self).__init__(*args, **kwargs)
+        self.example_input_array = torch.randn(self.hparams.input_shape)
 
         self.linear_encoder = nn.Linear(
-            self.latent_size * self.num_reduced_time_steps, self.latent_size
+            self.hparams.reduced_channels * self.hparams.reduced_timesteps,
+            self.hparams.latent_size,
         )
         self.linear_decoder = nn.Linear(
-            self.latent_size, self.latent_size * self.num_reduced_time_steps
+            self.hparams.latent_size,
+            self.hparams.reduced_channels * self.hparams.reduced_timesteps,
         )
-        # self.encoder = nn.Sequential(self.encoder, self.linear_encoder)
-        # self.decoder = nn.Sequential(self.linear_decoder, self.decoder)
 
     def encode(self, x):
-        x = self.encoder(x)
-        x = x.view(x.size(0), -1)
+        x = super(LinearChannelDescentLatent1d, self).encode(x)
+        x = torch.flatten(self.activation(x), 1)
+        x = self.activation(x)
         x = self.linear_encoder(x)
         return x
 
     def decode(self, x):
         x = self.linear_decoder(x)
-        x = x.view(x.size(0), self.latent_size, self.num_reduced_time_steps)
-        x = self.decoder(x)
-        x = x[:, :, : self.input_shape[-1]]
+        x = x.view(
+            x.size(0), self.hparams.reduced_channels, self.hparams.reduced_timesteps
+        )
+        x = super(LinearChannelDescentLatent1d, self).decode(x)
         return x
+
+
+class ForcedLatentSpace(LinearChannelDescentLatent1d):
+
+    def __init__(self, *args, **kwargs):
+        super(ForcedLatentSpace, self).__init__(*args, **kwargs)
+        print(self.hparams)
+
+    def training_step(self, batch, batch_idx):
+        u, latent = batch
+        u_hat = self.forward(u)
+        latent_hat = self.encode(u)
+        loss = self.loss(u_hat, u, latent_hat, latent)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        u, latent = batch
+        u_hat = self.forward(u)
+        latent_hat = self.encode(u)
+        loss = self.loss(u_hat, u, latent_hat, latent)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        u = batch[0]
+        u_hat = self.forward(u)
+        loss = self.test_loss(u_hat, u)
+        self.log("test_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.5, patience=5, verbose=True
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                "strict": True,
+            },
+        }
+
+    @staticmethod
+    def loss(u_hat, u, latent_hat, latent, weight: float = 1e-4):
+        reconstruction_loss = nn.functional.mse_loss(u_hat, u)
+        latent_loss = nn.functional.mse_loss(latent_hat, latent)
+        return reconstruction_loss + weight * latent_loss
