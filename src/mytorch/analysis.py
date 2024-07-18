@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 import optuna
 import torch
@@ -34,7 +34,7 @@ class StudyRunner:
 
         storage = optuna.storages.RDBStorage(
             url=storage_name,
-            heartbeat_interval=1,
+            heartbeat_interval=10,
             failed_trial_callback=RetryFailedTrialCallback(),
         )
 
@@ -44,11 +44,14 @@ class StudyRunner:
             direction="minimize",
             load_if_exists=True,
             pruner=optuna.pruners.MedianPruner(
-                n_startup_trials=2, n_warmup_steps=5, interval_steps=3
+                n_startup_trials=2, n_warmup_steps=10, interval_steps=5
             ),
             sampler=sampler,
         )
-        study.optimize(func=lambda trial: objective(trial, self.config), n_trials=4)
+        study.optimize(
+            func=lambda trial: objective(trial, self.config),
+            n_trials=self.config.num_trials,
+        )
 
         pruned_trials = study.get_trials(states=(optuna.trial.TrialState.PRUNED,))
         complete_trials = study.get_trials(states=(optuna.trial.TrialState.COMPLETE,))
@@ -69,6 +72,14 @@ class StudyRunner:
 
         # The line of the resumed trial's intermediate values begins with the restarted epoch.
         optuna.visualization.plot_intermediate_values(study).show()
+        # visualize parameter space with parallel coordinates
+        optuna.visualization.plot_parallel_coordinate(study).show()
+
+        # dump the best trial as a config
+        best_trial = study.best_trial
+        best_trial_config = study.trials_dataframe().iloc[best_trial.number]
+        output_dir = self.config.paths.output.parameters_dir
+        best_trial_config.to_csv(output_dir / "{study_name}_best_trial.csv")
 
 
 def get_suggestions(trial, config) -> Dict:
@@ -79,27 +90,59 @@ def get_suggestions(trial, config) -> Dict:
 
     # for each attribute in the estimator config
     suggestions = {}
-    frozen = ["input_shape", "output_shape", "device"]
+    frozen = ("input_shape", "output_shape", "device")
+
+    importable = {
+        "model": "mytorch.networks",
+        "optimizer": "torch.optim",
+        "criterion": "torch.nn",
+    }
+    skip = ("logger",)
+
     for attr in config.__dict__.keys():
         # if the attribute is a list
         value = getattr(config, attr)
         if attr in frozen or not isinstance(value, (list, tuple)):
             # use the value
             suggestions[attr] = value
-        else:
-            # get the value from the trial
-            try:
-                suggestions[attr] = trial.suggest_categorical(attr, value)
-            except ValueError as e:
-                print(f"Error in {attr} with value {value}")
-                raise e
-            importable = {
-                "model": "mytorch.networks",
-                "optimizer": "torch.optim",
-                "criterion": "torch.nn",
-            }
-            skip = ("logger",)
-            if attr in importable.keys() and not attr in skip:
+        elif attr not in skip:
+            match value:
+                case (low, high, option):
+                    match (low, high, option):
+                        case (int(), int(), int()):
+                            suggestions[attr] = trial.suggest_int(
+                                attr, low, high, step=option
+                            )
+                        case (float(), float(), bool()):
+                            suggestions[attr] = trial.suggest_float(
+                                attr, low, high, log=option
+                            )
+                        case _:
+                            suggestions[attr] = trial.suggest_categorical(
+                                attr, [low, high, option]
+                            )
+
+                case (low, high):
+                    match (low, high):
+                        case (int(), int()):
+                            suggestions[attr] = trial.suggest_int(attr, low, high)
+                        case (float(), float()):
+                            suggestions[attr] = trial.suggest_float(attr, low, high)
+                case (single_value,):
+                    suggestions[attr] = single_value
+                case options if isinstance(options, (List, Tuple)):
+                    match options:
+                        case strings if all(isinstance(s, str) for s in strings):
+                            suggestions[attr] = trial.suggest_categorical(attr, strings)
+                        case _:
+                            pass
+                case single_value if isinstance(single_value, (int, float, bool, str)):
+                    suggestions[attr] = single_value
+                case _:
+                    raise ValueError(f"Invalid type for {attr}: {type(value)}")
+
+            if attr in importable.keys():
+
                 suggestions[attr] = import_module(
                     f"{importable[attr]}.{suggestions[attr]}"
                 )
@@ -108,7 +151,7 @@ def get_suggestions(trial, config) -> Dict:
 
 
 def define_trainer(
-    trial,
+    trial: optuna.Trial,
     training_config: TrainingConfig,
     model: torch.nn.Module,
     logger,
@@ -128,6 +171,7 @@ def define_trainer(
         logger=logger,
         models_dir=models_dir,
         delete_old=delete_old,
+        kld_weight=trial.suggest_float("kld_weight", 1e-5, 1e-3, log=True),
     )
 
 
