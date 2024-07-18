@@ -1,7 +1,7 @@
 import re
 from functools import reduce
 from pathlib import Path
-from typing import Dict, Union, Any, Callable
+from typing import Dict, Union, Any, Callable, Optional
 
 import numpy as np
 import torch
@@ -16,26 +16,36 @@ def replace_placeholders_in_toml(string: str) -> str:
     """Uses re to replace placeholders in a toml string.
     Placeholder format is {section.key} where {'section.key': 'value'}"""
     mapping = parse(string)
+    # set keys to snake case
     flattened = flatten_dict(mapping)
     final = interpolate_placeholders(string, flattened)
-    return final
+    # in keys replace hyphens with underscores
+    return final.replace("//", "/")
 
 
 @validate_call
-def interpolate_placeholders(text: str, replacement_dict: Dict[str, Any]):
-    # Define a pattern that matches '{word}'
-    pattern = r"\{(.*)\}"
+def interpolate_placeholders(text: str, replacement_dict: Dict[str, Any]) -> str:
+    """Interpolates placeholders in a string with values from a dictionary.
+    The placeholders are marked with curly braces {}.
+    Multiple matches are possible, so the function uses re to find all matches.
+    Args:
+    - text: The string to interpolate.
+    - replacement_dict: The dictionary with the replacements.
+    Returns:
+    - str: The interpolated string.
+    """
+    pattern = re.compile(r"\{([^}]*)\}")
+    matches = pattern.findall(text)
+    # apply recursively until no more placeholders are found
+    while matches:
+        for match in matches:
+            for key, value in replacement_dict.items():
+                if match == key:
+                    text = text.replace("{" + match + "}", str(value))
 
-    # Function to perform replacement
-    def replace_with_dict(match):
-        key = match.group(1)
-        if key in replacement_dict:
-            return replacement_dict[key]
-        else:
-            raise ValueError(f"Key {key} not found in configuration.")
+        matches = pattern.findall(text)
 
-    # Perform substitution using re.sub() with a function
-    return re.sub(pattern, replace_with_dict, text)
+    return text
 
 
 @validate_call
@@ -136,8 +146,11 @@ def get_nested_dict_value(d: Dict, keys: Union[list, tuple], default="") -> Any:
 
 
 @validate_call
-def smart_load_tensors(path: FilePath, convolutional_dims: int, **kwargs):
+def smart_load_tensors(path: FilePath, convolutional_dims: Optional[int], **kwargs):
     """Load with either numpy or torch depending on file extension."""
+    if convolutional_dims is None:
+        print("Assuming convolutional_dims=0 i.e. (N, M) shape")
+        convolutional_dims = 0
     if path.suffix == ".pt":
         tensor = torch.load(path, **kwargs)
     elif path.suffix == ".npy":
