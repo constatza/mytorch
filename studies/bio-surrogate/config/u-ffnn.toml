@@ -1,32 +1,36 @@
-name = "u-problem-ffnn"
-source="u-problem-ffnn-train-test"
+[study]
+name = "u_problem_ffnn"
+source = "u_problem_ffnn_train_test"
 description = "feedforward neural network for the porous media problem"
 
 [model]
-networks = ['ffnns.ConstantHiddenSizeFFNN']
-hidden-layers = [1]
-hidden-size = [200,]
+name = ['ffnns.ConstantHiddenSizeFFNN']
+hidden_layers = [1]
+hidden_size = [200, ]
+input_shape = [-1, 3]
+
 
 
 [training]
-batch-size = [128]
-learning-rate = [1e-3, 1e-4]
-num-epochs = 25000
+batch_size = [128]
+learning_rate = [1e-3, 1e-4]
+num_epochs = 25000
 
 [test]
 model = "ConstantHiddenSizeFFNN_0.pt"
 
-[paths.input]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{source}"
-x-train = "./x_train_scaled.npy"
-x-test = "./x_test_scaled.npy"
-y-train = "./y_train_scaled.npy"
-y-test = "./y_test_scaled.npy"
+[paths]
+input = "C:/Users/cluster/constantinos/mytorch/data/processed/{study.source}"
+output = "C:/Users/cluster/constantinos/mytorch/data/output/{study.name}/"
 
 
-[paths.output]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\output\\{name}\\"
-img = "./img/"
-models = "./models/"
-parameters = "./parameters/"
-figures = "./figures/"
+x_train = "{paths.input}/parameters_train_scaled.npy"
+x_test = "{paths.input}/parameters_test_scaled.npy"
+y_train = "{paths.input}/y_train_scaled.npy"
+y_test = "{paths.input}/y_test_scaled.npy"
+
+
+img = "{paths.output}/img/"
+models_dir = "{paths.output}/models/"
+parameters = "{paths.output}/parameters/"
+figures = "{paths.output}/figures/"
