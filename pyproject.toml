@@ -30,6 +30,12 @@ optuna = "^3.6.1"
 pydantic = "^2.7.4"
 torch = {version = "^2.3.1+cu118", source = "pytorch_gpu"}
 plotly = "^5.22.0"
+pandas = "^2.2.2"
+lightning = "^2.3.2"
+rich = "^13.7.1"
+matplotlib = "^3.9.1"
+scikit-learn = "^1.5.1"
+torchvision = {version = "^0.18.1+cu118", source = "pytorch_gpu"}
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
 
