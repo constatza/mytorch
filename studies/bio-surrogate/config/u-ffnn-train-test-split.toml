@@ -1,24 +1,25 @@
+[study]
 name = "u-problem-ffnn-train-test"
 source = "u-problem"
 description = "split the data into train and test sets"
 
 
 [paths.input]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{source}"
-latent-space = "./latent.npy"
+root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{study.source}"
+latent = "./latent_data_mean.npy"
 
 [paths.raw]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
+root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\raw\\"
 parameters = "./solutions500/parameters.npy"
 
 
 [paths.output]
-root = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{name}\\"
-x-train = "./x_train.npy"
-x-test = "./x_test.npy"
-y-train = "./y_train.npy"
-y-test = "./y_test.npy"
-x-train-scaled = "./x_train_scaled.npy"
-x-test-scaled = "./x_test_scaled.npy"
-y-train-scaled = "./y_train_scaled.npy"
-y-test-scaled = "./y_test_scaled.npy"
+root-dir = "C:\\Users\\cluster\\constantinos\\mytorch\\data\\processed\\{study.name}\\"
+x_train = "./x_train.npy"
+x_test = "./x_test.npy"
+y_train = "./y_train.npy"
+y_test = "./y_test.npy"
+x_train_scaled = "./x_train_scaled.npy"
+x_test_scaled = "./x_test_scaled.npy"
+y_train_scaled = "./y_train_scaled.npy"
+y_test_scaled = "./y_test_scaled.npy"

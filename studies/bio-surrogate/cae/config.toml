@@ -1,0 +1,34 @@
+[study]
+name = "cae"
+description = "diplacements & pressure from porous media flow"
+variable = "U,P"
+delete_old = true
+logger = "progress"
+num_trials = 100
+
+[model]
+name = "caes.LinearChannelDescentVAE"
+#name = "caes.LinearChannelDescentLatent1d"
+kernel_size = [5]
+num_layers = 4
+latent_size = [2, 12, 1]
+convolution_dims = 1
+input_shape = [-1, 1731, 730]
+
+[training]
+batch_size = [32]
+learning_rate = [1e-5, 1e-3]
+num_epochs = 100
+optimizer = "RAdam"
+
+
+[paths]
+raw = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/data/raw"
+workdir = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/{study.name}"
+output = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/{study.name}/output"
+data = "{paths.raw}/solutions/porousSolutions.npy"
+targets = "{paths.raw}/solutions/porousSolutions.npy"
+
+figures = "{paths.output}/figures/"
+checkpoints = "{paths.workdir}/checkpoints/"
+logs = "{paths.workdir}/logs/"

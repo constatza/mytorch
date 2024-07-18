@@ -2,68 +2,53 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import torch
-from optuna import Trial
 from pydantic import (
     BaseModel,
-    FilePath,
     Field,
     field_validator,
+    ConfigDict,
+    model_validator,
+    DirectoryPath,
 )
+from pydantic.alias_generators import to_snake
 
-from mytorch.io.loggers import TrainLogger
 from mytorch.mytypes import (
     ListLike,
-    CreateIfNotExistsDir,
     Maybe,
 )
 
 
 class BasicConfig(BaseModel):
-    class Config:
-        populate_by_name = True
-        allow_population_by_alias = True
-        arbitrary_types_allowed = True
-        frozen = True
-
-        @classmethod
-        def alias_generator(cls, field_name: str) -> str:
-            return field_name.lower().strip().replace("_", "-")
-
-
-class PathsInputConfig(BasicConfig):
-    root_dir: CreateIfNotExistsDir
-    x_train: FilePath
-    y_train: FilePath
-    x_test: FilePath
-    y_test: FilePath
-    means: Optional[FilePath]
-    stds: Optional[FilePath]
-    dataset: Optional[FilePath]
-    latent: Optional[FilePath]
-
-
-class PathsRawConfig(BasicConfig):
-    class Config:
-        extra = "allow"
-
-    root_dir: Optional[CreateIfNotExistsDir] = None
-    dataset: Optional[Path] = None
-    dofs: Optional[Path] = None
-
-
-class PathsOutputConfig(BasicConfig):
-    root_dir: CreateIfNotExistsDir
-    figures_dir: Optional[CreateIfNotExistsDir]
-    models_dir: Optional[CreateIfNotExistsDir]
-    logs_dir: Optional[CreateIfNotExistsDir]
-    results_dir: Optional[CreateIfNotExistsDir]
-    parameters_dir: Optional[CreateIfNotExistsDir]
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        populate_by_name=True,
+        frozen=True,
+        extra="allow",
+        alias_generator=lambda x: to_snake(x).replace("_", "-"),
+    )
 
 
 class PathsConfig(BasicConfig):
-    input: PathsInputConfig
-    raw: PathsRawConfig
-    output: PathsOutputConfig
+
+    @model_validator(mode="before")
+    def validate_paths(cls, data):
+        for key, path in data.items():
+            # create dirs if they don't exist
+            if path is not None:
+                path = Path(path)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                data[key] = path
+        return data
+
+    output: Optional[Path] = None
+    input: Optional[Path] = None
+    raw: Optional[Path] = None
+    processed: Optional[Path] = None
+    input_data: Optional[Path] = None
+    output_data: Optional[Path] = None
+    checkpoint: Optional[DirectoryPath] = None
+    model: Optional[Path] = None
+    dataset: Optional[Path] = None
 
 
 class EstimatorsConfig(BasicConfig):
@@ -71,7 +56,7 @@ class EstimatorsConfig(BasicConfig):
     input_shape: Annotated[
         ListLike, Field(min_length=1, max_length=4)
     ]  # The shape of the input data
-    convolution_dims: Annotated[int, Field(..., ge=0, le=2)]
+    convolution_dims: Annotated[int, Field(default=0, ge=0, le=2)]
     kernel_size: Optional[ListLike[int]] = None
     num_layers: Optional[ListLike[int]] = None
     latent_size: Optional[ListLike[int]] = None
@@ -79,12 +64,8 @@ class EstimatorsConfig(BasicConfig):
 
 
 class TrainingConfig(BasicConfig):
-    train_loader: torch.utils.data.DataLoader  # The DataLoader for the training data
-    test_loader: torch.utils.data.DataLoader  # The DataLoader for the test data
     num_epochs: ListLike[int] = 100  # The number of epochs for training
     batch_size: ListLike[int] = 32  # The batch size for training
-    optimizer: ListLike[str] = "Adam"
-    criterion: ListLike[str] = "MSELoss"
     learning_rate: ListLike[float] = 1e-3
     device: Optional[torch.device] = (
         "cuda" if torch.cuda.is_available() else "cpu"
@@ -95,14 +76,14 @@ class StudyConfig(BasicConfig):
     class Config:
         extra = "ignore"
 
-    name: Optional[str] = None
-    training: TrainingConfig
-    estimators: EstimatorsConfig
     paths: PathsConfig
-    description: Optional[str]
-    variable: Optional[str]
-    logger: Optional[TrainLogger] = "progress"
-    delete_old: Optional[bool]
+    name: Optional[str] = None
+    training: Optional[TrainingConfig]
+    estimators: Optional[EstimatorsConfig]
+    description: Optional[str] = ""
+    variable: Optional[str] = "x"
+    delete_old: Optional[bool] = True
+    num_trials: Optional[int] = 1
 
     @field_validator("name", mode="after")
     def validate_name(cls, v: Maybe[str]) -> str:
@@ -112,18 +93,3 @@ class StudyConfig(BasicConfig):
         from datetime import datetime
 
         return v if v else datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-
-class TrainerConfig(BasicConfig):
-    trial: Trial
-    model: torch.nn.Module
-    train_loader: torch.utils.data.DataLoader
-    test_loader: torch.utils.data.DataLoader
-    criterion: torch.nn.modules.loss._Loss
-    optimizer: type(torch.optim.Optimizer)
-    device: torch.device
-    learning_rate: float
-    logger: TrainLogger
-    models_dir: Path
-    num_epochs: int
-    delete_old: bool
