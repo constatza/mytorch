@@ -25,7 +25,7 @@ def reshaper(func):
     return wrapper
 
 
-def scale_timeseries(dataset, means=None, stds=None):
+def scale_timeseries_torch(dataset: torch.Tensor, means=None, stds=None):
     """Scale the data using a standard scaler."""
     # Scale data
     # assuming dataset is of shape (num_samples, num_channels, num_features, num_timesteps)
@@ -35,6 +35,26 @@ def scale_timeseries(dataset, means=None, stds=None):
         stds = torch.std(dataset, dim=(0, -1), keepdim=True)
 
     return (dataset - means) / stds, means, stds
+
+
+def scale_timeseries_numpy(dataset: np.ndarray, means=None, stds=None):
+    """Scale the data using a standard scaler."""
+    # Scale data
+    # assuming dataset is of shape (num_samples, num_channels, num_features, num_timesteps)
+    if means is None:
+        means = np.mean(dataset, axis=(0, -1), keepdims=True)
+    if stds is None:
+        stds = np.std(dataset, axis=(0, -1), keepdims=True)
+
+    return (dataset - means) / stds, means, stds
+
+
+def scale_timeseries(dataset, *args, **kwargs):
+    """Scale the data using a standard scaler."""
+    if isinstance(dataset, torch.Tensor):
+        return scale_timeseries_torch(dataset, *args, **kwargs)
+    else:
+        return scale_timeseries_numpy(dataset, *args, **kwargs)
 
 
 def unscale_timeseries(dataset, means, stds):
