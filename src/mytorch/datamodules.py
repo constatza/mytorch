@@ -1,90 +1,236 @@
 from pathlib import Path
-from typing import Optional, Tuple, List
+from typing import Optional, Callable, Iterable
 
 import numpy as np
-import torch
 from lightning import LightningDataModule
-from pydantic import FilePath
+from pydantic import FilePath, validate_call
 from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset, DataLoader
 
+from mytorch.io.logging import get_logger
 from mytorch.io.readers import read_array_as_numpy
-from mytorch.pipeline import Pipeline
+from mytorch.io.writers import savez_asarray
+from mytorch.mytypes import TupleLike, CreateIfNotExistsDir
+from mytorch.transforms import NumpyToTensor, Transformation
+
+logger = get_logger(__name__)
 
 
-def create_datasets(
-    stage: str,
-    x_test: torch.Tensor | np.ndarray,
-    x_train: Optional[np.ndarray] = None,
-    y_train: Optional[np.ndarray] = None,
-    y_test: Optional[np.ndarray] = None,
-) -> Tuple[Optional[TensorDataset], TensorDataset]:
-    """
-    Creates PyTorch Dataloaders for the training and validation data.
+# TODO: maybe use symbolic links to avoid copying the data
+class FileDataModule(LightningDataModule):
+    """Class to load data from files and prepare it for training, validation, and testing.
 
     Args:
-        stage (str): The stage of the pipeline.
-        x_train (torch.Tensor): The training data.
-        x_test (torch.Tensor): The validation data.
-        y_train (torch.Tensor, optional): The training labels. Defaults to None.
-        y_test (torch.Tensor, optional): The validation labels. Defaults to None.
-
-    Returns:
-        tuple[DataLoader, DataLoader]: The Dataloaders for the training and validation data.
+        save_dir (CreateIfNotExistsDir): Directory to save the dataset and metadata.
+        paths (TupleLike[FilePath]): Paths to the data files.
+        preprocessors (TupleLike[Callable, ...], optional): Preprocessors for the data. Defaults to (lambda x: x, lambda x: x).
+        transforms (TupleLike[Transformation, ...], optional): Transforms for the data. Defaults to (NumpyToTensor(), NumpyToTensor()).
+        test_size (float, optional): Percentage of the whole dataset to use for testing. Defaults to 0.2.
+        val_size (float, optional): Percentage of the test dataset to use for validation. Defaults to 0.5.
+        batch_size (int, optional): Batch size for the dataloaders. Defaults to 64.
+        rebuild_dataset (bool, optional): Whether to rebuild the dataset. Defaults to False.
+        names (TupleLike[str], optional): Names of the data. Defaults to ("features", "targets").
+        indices_path (Optional[FilePath], optional): Path to the metadata file. Defaults to None.
 
     """
-    x_train, x_test, y_train, y_test = map(
-        lambda x: torch.from_numpy(x).float() if x is not None else None,
-        (x_train, x_test, y_train, y_test),
-    )
-    if stage == "fit":
-        return TensorDataset(x_train, y_train), TensorDataset(x_test, y_test)
 
-    if stage == "test":
-        return None, TensorDataset(x_test, y_test)
-
-    if stage == "predict":
-        return None, TensorDataset(x_test)
-
-
-class SupervisedDataModule(LightningDataModule):
+    @validate_call(config={"arbitrary_types_allowed": True})
     def __init__(
         self,
-        data_path: Path,
-        targets_path: Optional[Path] = None,
-        batch_size: int = 32,
-        test_size: float = 0.2,
-        val_size: float = 0.2,
-        shuffle: bool = True,
-        input_shape: Optional[Tuple[int, ...]] = None,
-        output_shape: Optional[Tuple[int, ...]] = None,
+        save_dir: CreateIfNotExistsDir,
+        paths: TupleLike[FilePath],
+        preprocessors: TupleLike[Callable, ...] = (lambda x: x, lambda x: x),
+        transforms: TupleLike[Transformation, ...] = (NumpyToTensor(), NumpyToTensor()),
+        test_size: float = 0.2,  # percentage of the whole dataset
+        val_size: float = 0.5,  # percentage of the test dataset
+        batch_size: int = 64,
+        rebuild_dataset: bool = False,
+        names: TupleLike[str] = ("features", "targets"),
+        indices_path: Optional[FilePath] = None,
     ):
         super().__init__()
-        self.data_path = data_path
-        self.targets_path = targets_path or data_path
+        self.save_dir = save_dir
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        # find the least common number of files, names, transforms, and preprocessors
+        zipped = zip(paths, names, transforms, preprocessors)
+        self.paths, self.names, self.transforms, self.preprocessors = zip(*zipped)
+        self.num_files = len(self.paths)
+        if self.num_files != len(transforms) or self.num_files != len(
+            self.preprocessors
+        ):
+            logger.warn(
+                "The number of paths, names, transforms, and preprocessors are not equal."
+            )
+
+        self.targets_exist = False
+        if self.num_files == 2:
+            if self.paths[1] != self.paths[0]:
+                # if the target path is different from the feature path
+                self.targets_exist = True
+
         self.batch_size = batch_size
         self.test_size = test_size
         self.val_size = val_size
-        self.shuffle = shuffle
-        self.input_shape = input_shape
-        self.output_shape = output_shape
+        self.indices_path = indices_path
+        self._metadata = None
+        self._dataset = None
+
+        self.input_shape = None
+        self.output_shape = None
 
         self.train_dataset = None
         self.val_dataset = None
         self.test_dataset = None
+        self.predict_dataset = None
+
+        self.x_train = None
+        self.y_train = None
+        self.x_val = None
+        self.y_val = None
+        self.x_test = None
+        self.y_test = None
+
+        self.rebuild_dataset = rebuild_dataset
+        # self.prepare_data()
+
+    def path_to(self, filename: str, suffix: str = ".npy") -> Path:
+        return (self.save_dir / filename).with_suffix(suffix)
 
     def prepare_data(self):
-        # To be implemented by child classes
-        pass
+        if not self.path_to("dataset").exists() or self.rebuild_dataset:
+            logger.info("Preparing data.")
+            data = self.get_data(self.paths, self.preprocessors)
+            logger.info("Saving dataset.")
+            self.save_data(data)
+            logger.info("Saving metadata.")
+            self.save_metadata(data)
 
-    def setup(self, stage: Optional[str] = None):
+    def save_data(self, data):
+        savez_asarray(
+            self.path_to("dataset"),
+            **{name: data for name, data in zip(self.names, data)},
+        )
+
+    def get_train_val_test_indices(self, num_samples: int = None):
+        # Save indices for train, val, test
+        train_idx, val_idx, test_idx = train_val_test_split(
+            indices=np.arange(num_samples),
+            test_size=self.test_size,
+            val_size=self.val_size,
+        )
+        return {
+            "train_idx": train_idx,
+            "val_idx": val_idx,
+            "test_idx": test_idx,
+            "num_samples": num_samples,
+        }
+
+    def save_metadata(self, data):
+        """Save metadata to a file.
+        Train/Val/Test indices are generated if not provided in indices_path.
+        """
+        num_samples = data[0].shape[0]
+        if self.indices_path is None:
+            logger.warn("Indices being split into train/validation/test.")
+            indices = self.get_train_val_test_indices(num_samples)
+        else:
+            logger.info(
+                f"Loading train/validation/test indices from {self.indices_path}."
+            )
+            metadata = np.load(self.indices_path)
+            indices = {
+                "train_idx": metadata["train_idx"],
+                "val_idx": metadata["val_idx"],
+                "test_idx": metadata["test_idx"],
+            }
+
+        metadata = {
+            **indices,
+            **{name + "_shape": data.shape for name, data in zip(self.names, data)},
+        }
+
+        savez_asarray(
+            self.path_to("metadata"),
+            **metadata,
+        )
+
+    @staticmethod
+    def get_data(paths: tuple, preprocessors: Iterable) -> tuple[np.ndarray]:
+        data_raw = (read_array_as_numpy(path) for path in paths)
+        return tuple(
+            preprocessor(data) for data, preprocessor in zip(data_raw, preprocessors)
+        )
+
+    @property
+    def dataset(self):
+        if self._dataset is None:
+            self._dataset = np.load(self.path_to("dataset", ".npz"))
+        return self._dataset
+
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            self._metadata = np.load(self.path_to("metadata", ".npz"))
+        return self._metadata
+
+    def setup(self, stage: str | None = None):
         # To be implemented by child classes
-        pass
+        self.input_shape = self.metadata["features_shape"]
+        self.feature_transforms = self.transforms[0]
+        if self.targets_exist:
+            self.target_transforms = self.transforms[1]
+            self.output_shape = self.metadata["targets_shape"]
+        else:
+            self.output_shape = self.input_shape
+            self.target_transforms = None
+
+        if stage == "fit":
+            train_idx = self.metadata["train_idx"]
+            val_idx = self.metadata["val_idx"]
+
+            self.x_train = self.feature_transforms.fit_transform(
+                self.dataset["features"][train_idx]
+            )
+            self.x_val = self.feature_transforms.transform(
+                self.dataset["features"][val_idx]
+            )
+
+            if self.targets_exist:
+                self.y_train = self.target_transforms.fit_transform(
+                    self.dataset["targets"][train_idx]
+                )
+                self.y_val = self.target_transforms.transform(
+                    self.dataset["targets"][val_idx]
+                )
+            else:
+                self.y_train = self.x_train
+                self.y_val = self.x_val
+
+            self.train_dataset = TensorDataset(self.x_train, self.y_train)
+            self.val_dataset = TensorDataset(self.x_val, self.y_val)
+
+        elif stage == "test":
+            test_idx = self.metadata["test_idx"]
+            x_test = self.dataset["features"][test_idx]
+            self.x_test = self.feature_transforms.transform(x_test)
+            if self.targets_exist:
+                y_test = self.dataset["targets"][test_idx]
+                self.y_test = self.target_transforms.transform(y_test)
+            else:
+                self.y_test = self.x_test
+
+            self.test_dataset = TensorDataset(self.x_test, self.y_test)
+
+        elif stage == "predict":
+            self.features = self.feature_transforms.transform(self.dataset["features"])
+            if self.targets_exist:
+                self.targets = self.target_transforms.transform(self.dataset["targets"])
+            else:
+                self.targets = self.features
+            self.predict_dataset = TensorDataset(self.features, self.targets)
 
     def train_dataloader(self) -> DataLoader:
-        return DataLoader(
-            self.train_dataset, batch_size=self.batch_size, shuffle=self.shuffle
-        )
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
 
     def val_dataloader(self) -> DataLoader:
         return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False)
@@ -92,161 +238,23 @@ class SupervisedDataModule(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
 
-
-class FileDataset(LightningDataModule):
-
-    def __init__(
-        self,
-        default_dir: Path,
-        data_path: FilePath,
-        targets_path: Optional[FilePath] = None,
-        test_size: float = 0.2,
-        val_size: float = 0.2,
-        batch_size: int = 32,
-        shuffle_test: bool = False,
-        rebuild_dataset: bool = False,
-        pipeline: Optional[Pipeline] = None,
-        input_shape: Optional[Tuple[int, ...]] = None,
-        output_shape: Optional[Tuple[int, ...]] = None,
-    ):
-        super().__init__()
-        self.data_path = Path(data_path)
-        self.targets_path = (
-            Path(targets_path) if targets_path is not None else self.data_path
-        )
-        self.test_size = test_size
-        self.train_size = 1 - test_size
-        self.val_size = val_size
-        self.batch_size = batch_size
-        self.shuffle_test = shuffle_test
-        # dir save the train/test split
-        self.default_dir = Path(default_dir)
-        self.default_dir.mkdir(parents=True, exist_ok=True)
-        # load path for train/test data
-        self.load_path = self.default_dir / "dataset.npz"
-        self.rebuild_dataset = rebuild_dataset
-
-        self.train = None
-        self.val = None
-        self.test = None
-        self.input_shape = input_shape
-        self.output_shape = output_shape
-        self.pipeline = pipeline
-
-    def prepare_data(self) -> None:
-        raise NotImplementedError
-        if not self.load_path.exists() or self.rebuild_dataset:
-            data_array = read_array_as_numpy(self.data_path)
-            target_array = read_array_as_numpy(self.targets_path)
-
-            dofs = self.data_path.parent.parent / "dofs" / "Pdofs.txt"
-            dofs = np.loadtxt(dofs).astype(int)
-            x = data_array[:, :, dofs].transpose(0, 2, 1)
-            y = x
-
-            x_train, x_test, y_train, y_test = train_test_split(
-                x,
-                y,
-                test_size=self.test_size,
-                shuffle=True,
-            )
-
-            x_train = self.pipeline.fit_transform(x_train)
-            x_test = self.pipeline.transform(x_test)
-
-            y_train = self.pipeline.fit_transform(y_train)
-            y_test = self.pipeline.transform(y_test)
-
-            np.save(self.data_path.parent / "p_solutions.npy", x)
-
-            save_uncompressed(
-                self.load_path,
-                x_train=x_train,
-                x_test=x_test,
-                y_train=y_train,
-                y_test=y_test,
-            )
-            print("Train/Test saved to", self.load_path)
-
-    def setup(self, stage: str):
-        data = np.load(self.load_path)
-        if stage == "fit":
-            x_train = data["x_train"]
-            y_train = data["y_train"]
-            # train/val split
-            x_train, x_val, y_train, y_val = train_test_split(
-                x_train, y_train, test_size=self.val_size, shuffle=True
-            )
-
-            self.train_dataset, self.val_dataset = create_datasets(
-                stage=stage,
-                x_train=x_train,
-                x_test=x_val,
-                y_train=y_train,
-                y_test=y_val,
-            )
-
-        if stage == "test":
-            x_test = data["x_test"]
-            y_test = data["y_test"]
-            _, self.test_dataset = create_datasets(
-                stage=stage,
-                x_test=x_test,
-                y_test=y_test,
-            )
-
-        if stage == "predict":
-            x_test = data["x_test"]
-            y_test = data["y_test"]
-            _, self.predict_dataset = create_datasets(
-                stage=stage,
-                x_test=x_test,
-                y_test=y_test,
-            )
-
-    def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
-
-    def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False)
-
-    def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
-
-    def predict_dataloader(self):
+    def predict_dataloader(self) -> DataLoader:
         return DataLoader(
-            self.predict_dataset, batch_size=self.batch_size, shuffle=False
-        )
-
-    def encode_dataloader(self):
-        return DataLoader(
-            self.predict_dataset, batch_size=self.batch_size, shuffle=False
+            self.predict_dataset, batch_size=len(self.predict_dataset), shuffle=False
         )
 
 
-def percentage_to_size(percentage: float, total_size: int) -> int:
-    """Converts a percentage to a size."""
-    return int(total_size * percentage)
+def train_val_test_split(indices=None, test_size=0.2, val_size=0.5):
+    train, test_plus_val = train_test_split(
+        indices,
+        test_size=test_size,
+        shuffle=True,
+    )
 
+    val, test = train_test_split(
+        test_plus_val,
+        test_size=val_size,
+        shuffle=True,
+    )
 
-def get_split_sizes(
-    total_size: int, percentages: Tuple[float] | List[float]
-) -> Tuple[int]:
-    """Get the sizes for the training, validation, and test sets."""
-
-    if not sum(percentages) == 1:
-        raise ValueError("The percentages must add up to one.")
-    if not all(0 <= percentage <= 1 for percentage in percentages):
-        raise ValueError("The value must be a percentage.")
-
-    sizes_gen = [
-        percentage_to_size(percentage, total_size) for percentage in percentages
-    ]
-    sizes_gen[-1] = total_size - sum(sizes_gen[:-1])
-
-    return tuple(sizes_gen)
-
-
-def save_uncompressed(path, **kwargs):
-    kwargs = {k: v.numpy() if isinstance(v, torch.Tensor) else v for k, v in kwargs}
-    np.savez_compressed(path, **kwargs)
+    return train, val, test
