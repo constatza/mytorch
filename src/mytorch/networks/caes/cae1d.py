@@ -1,13 +1,12 @@
-from typing import Tuple, List
+from typing import List
 
 import numpy as np
 import torch
-from torch import Size
+from pydantic import validate_call
 from torch import nn
 
+from mytorch.mytypes import TupleLike
 from mytorch.networks.caes.base import CAE
-
-ShapeLike = Tuple | List | Size
 
 
 class CAE1d(CAE):
@@ -42,8 +41,9 @@ class CAE1d(CAE):
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode="min",
-            factor=0.5,
+            factor=0.6,
             patience=10,
+            min_lr=1e-5,
         )
         return {
             "optimizer": optimizer,
@@ -56,9 +56,10 @@ class CAE1d(CAE):
 
 
 class LinearChannelDescentLatent2d(CAE1d):
+    @validate_call(config={"arbitrary_types_allowed": True})
     def __init__(
         self,
-        input_shape: ShapeLike,
+        input_shape: TupleLike,
         reduced_channels: int = 10,
         reduced_timesteps: int = 5,
         num_layers: int = 4,
@@ -69,7 +70,7 @@ class LinearChannelDescentLatent2d(CAE1d):
         self.save_hyperparameters(ignore="activation")
         self.activation = activation
         # lightining test tensor to print the network shapes
-        self.example_input_array = torch.randn(input_shape)
+        self.example_input_array = torch.zeros(input_shape)
 
         channels = (
             np.linspace(input_shape[-2], reduced_channels, num_layers + 1)
@@ -118,11 +119,11 @@ class LinearChannelDescentLatent2d(CAE1d):
                     padding="same",
                 )
             )
-            encoder.append(nn.GELU())
             if timesteps[-1] < timesteps[0]:
-                encoder.append(nn.AdaptiveMaxPool1d(timesteps[i + 1]))
                 encoder.append(nn.GELU())
+                encoder.append(nn.AdaptiveMaxPool1d(timesteps[i + 1]))
 
+            encoder.append(nn.GELU())
             encoder.append(
                 nn.Conv1d(
                     channels[i],
@@ -132,6 +133,7 @@ class LinearChannelDescentLatent2d(CAE1d):
                     padding="same",
                 )
             )
+
             encoder.append(nn.GELU())
 
         encoder.append(
@@ -153,7 +155,7 @@ class LinearChannelDescentLatent2d(CAE1d):
         num_layers: int,
         kernel_size: int,
         timesteps: List[int],
-        input_shape: ShapeLike,
+        input_shape: TupleLike,
     ):
 
         dofs = input_shape[-2]
@@ -163,17 +165,17 @@ class LinearChannelDescentLatent2d(CAE1d):
         decoder = nn.ModuleList()
 
         for i in range(num_layers):
-            decoder.append(nn.GELU())
             decoder.append(
                 nn.Conv1d(
                     channels[i], channels[i], kernel_size, stride=1, padding="same"
                 )
             )
-            decoder.append(nn.GELU())
-            if timesteps[-1] > timesteps[0]:
-                decoder.append(nn.AdaptiveAvgPool1d(timesteps[i + 1]))
-                decoder.append(nn.GELU())
 
+            if timesteps[-1] > timesteps[0]:
+                decoder.append(nn.GELU())
+                decoder.append(nn.AdaptiveMaxPool1d(timesteps[i + 1]))
+
+            decoder.append(nn.GELU())
             decoder.append(
                 nn.Conv1d(
                     channels[i],
@@ -183,11 +185,11 @@ class LinearChannelDescentLatent2d(CAE1d):
                     padding="same",
                 )
             )
+            decoder.append(nn.GELU())
 
+        decoder.append(nn.AvgPool1d(kernel_size=7, stride=1, padding=3))
         decoder.append(nn.GELU())
-        decoder.append(
-            nn.Conv1d(dofs, dofs, kernel_size=kernel_size, stride=1, padding="same")
-        )
+        decoder.append(nn.Conv1d(dofs, dofs, 7, stride=1, padding="same"))
 
         decoder = nn.Sequential(*decoder)
 
@@ -217,13 +219,15 @@ class LinearChannelDescentLatent1d(LinearChannelDescentLatent2d):
 
     def encode(self, x):
         x = super(LinearChannelDescentLatent1d, self).encode(x)
-        x = torch.flatten(self.activation(x), 1)
+        x = self.activation(x)
+        x = torch.flatten(x, 1)
         x = self.activation(x)
         x = self.linear_encoder(x)
         return x
 
     def decode(self, x):
         x = self.linear_decoder(x)
+        x = self.activation(x)
         x = x.view(
             x.size(0), self.hparams.reduced_channels, self.hparams.reduced_timesteps
         )

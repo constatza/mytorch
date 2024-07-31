@@ -44,8 +44,10 @@ class CAE(LightningModule):
         return loss
 
     def predict_step(self, batch, batch_idx):
-        x, _ = batch
-        return self(x)
+        x = batch[0]
+        encoding = self.encode(x)
+        predictions = self.decode(encoding)
+        return predictions, encoding
 
     def configure_optimizers(self):
         return torch.optim.RAdam(self.parameters(), lr=self.hparams.lr)
