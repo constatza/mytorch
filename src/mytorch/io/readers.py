@@ -1,5 +1,5 @@
 import importlib
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 import numpy as np
 import torch
@@ -93,3 +93,9 @@ def read_array_as_numpy(path: FilePath):
         return torch.load(path).numpy()
     else:
         raise ValueError(f"Unsupported file type: {path.suffix}")
+
+
+@validate_call(config={"arbitrary_types_allowed": True})
+def load_subarray(path: FilePath, indices: np.ndarray | List[int]) -> np.ndarray:
+    """Loads a subarray from a larger array."""
+    return read_array_as_numpy(path)[indices]

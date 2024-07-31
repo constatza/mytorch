@@ -37,13 +37,19 @@ def interpolate_placeholders(text: str, replacement_dict: Dict[str, Any]) -> str
     pattern = re.compile(r"\{([^}]*)\}")
     matches = pattern.findall(text)
     # apply recursively until no more placeholders are found
-    while matches:
+    maximum_iterations = 4
+    i = 0
+    while matches and i < maximum_iterations:
         for match in matches:
             for key, value in replacement_dict.items():
                 if match == key:
                     text = text.replace("{" + match + "}", str(value))
 
         matches = pattern.findall(text)
+        i += 1
+    if i == maximum_iterations:
+        raise ValueError(f"Matches not found {matches}.")
+
 
     return text
 
