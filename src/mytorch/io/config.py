@@ -13,7 +13,7 @@ from pydantic import (
 from pydantic.alias_generators import to_snake
 
 from mytorch.mytypes import (
-    ListLike,
+    TupleLike,
     Maybe,
 )
 
@@ -52,21 +52,21 @@ class PathsConfig(BasicConfig):
 
 
 class EstimatorsConfig(BasicConfig):
-    model: ListLike[str]
+    model: TupleLike[str]
     input_shape: Annotated[
-        ListLike, Field(min_length=1, max_length=4)
+        TupleLike, Field(min_length=1, max_length=4)
     ]  # The shape of the input data
     convolution_dims: Annotated[int, Field(default=0, ge=0, le=2)]
-    kernel_size: Optional[ListLike[int]] = None
-    num_layers: Optional[ListLike[int]] = None
-    latent_size: Optional[ListLike[int]] = None
-    hidden_size: Optional[ListLike[int]] = None
+    kernel_size: Optional[TupleLike[int]] = None
+    num_layers: Optional[TupleLike[int]] = None
+    latent_size: Optional[TupleLike[int]] = None
+    hidden_size: Optional[TupleLike[int]] = None
 
 
 class TrainingConfig(BasicConfig):
-    num_epochs: ListLike[int] = 100  # The number of epochs for training
-    batch_size: ListLike[int] = 32  # The batch size for training
-    learning_rate: ListLike[float] = 1e-3
+    num_epochs: TupleLike[int] = 100  # The number of epochs for training
+    batch_size: TupleLike[int] = 32  # The batch size for training
+    learning_rate: TupleLike[float] = 1e-3
     device: Optional[torch.device] = (
         "cuda" if torch.cuda.is_available() else "cpu"
     )  # The device to train on (e.g., 'cpu' or 'cuda')
