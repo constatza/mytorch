@@ -1,41 +1,29 @@
 [study]
-name = "cae"
+name = "ffnn"
 description = "diplacements & pressure from porous media flow"
-variable = "U,P"
+variable = "P"
 delete_old = true
 num_trials = 100
 
-[model]
-name = "caes.LinearChannelDescentVAE"
-#name = "caes.LinearChannelDescentLatent1d"
-kernel_size = [5]
-num_layers = 4
-latent_size = [2, 12, 1]
-convolution_dims = 1
-input_shape = [-1, 1731, 730]
-
-[training]
-batch_size = [32]
-learning_rate = [1e-5, 1e-3]
-num_epochs = 100
-optimizer = "RAdam"
-
 
 [paths]
+root = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate"
 raw = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/data/raw"
 workdir = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/{study.name}"
+cae = "{paths.root}/cae/"
 
-features = "{paths.input}/solutions.npy"
+
+features = "{paths.raw}/solutions/parameters.npy"
+targets = "{paths.cae}/output/latent.npy"
 
 input = "{paths.workdir}/input/"
 output = "{paths.workdir}/output/"
+
 figures = "{paths.workdir}/figures/"
 checkpoints = "{paths.workdir}/checkpoints/"
 logs = "{paths.workdir}/logs/"
-latent = "{paths.output}/latent.npy"
-
 predictions = "{paths.output}/predictions.npy"
-parameters = "{paths.raw}/solutions/parameters.npy"
+metadata = "{paths.root}/cae/input/metadata.npz"
 
 
 

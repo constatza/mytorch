@@ -1,82 +1,124 @@
-import numpy as np
+import shutil
+
 import torch
 import torch.nn as nn
-from lightning.pytorch.callbacks import TQDMProgressBar
+from lightning.pytorch.callbacks import TQDMProgressBar, ModelCheckpoint, ModelSummary
+from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.trainer import Trainer
-from lightning.pytorch.tuner import Tuner
-from torch.utils.data import DataLoader, TensorDataset
 
+from mytorch.datamodules import FileDataModule
 from mytorch.io.readers import read_study
 from mytorch.networks.ffnns import FeedForwardNN
+from mytorch.pipeline import Pipeline
+from mytorch.transforms import NumpyToTensor, MinMaxScaler
+from mytorch.utils import tune_lr
 
-config_file = "../config/u-ffnn.toml"
+config_file = "./config.toml"
 config = read_study(config_file)
 
-x_train = np.load(config.paths.x_train)
-x_test = np.load(config.paths.x_test)
-y_train = np.load(config.paths.y_train)
-y_test = np.load(config.paths.y_test)
+input_size = 3
+output_size = 4
+tune = False
+continue_training = False
+rebuild_dataset = False
+num_epochs = 4000
+batch_size = 512
+lr = 5e-2
+layers = [input_size, 400, 500, output_size]
 
-x_train = torch.from_numpy(x_train).float()
-x_test = torch.from_numpy(x_test).float()
-y_train = torch.from_numpy(y_train).float()
-y_test = torch.from_numpy(y_test).float()
+torch.set_float32_matmul_precision("high")
 
+paths = config.paths
+root_dir = paths.workdir
 
-input_shape = x_train.shape[-1]
-output_shape = y_train.shape[-1]
-layers = [input_shape, 64, 128, 256, 128, 64, output_shape]
-batch_size = 2**11
-print(f"Latent space shape: {y_train.shape}")
+logger = CSVLogger(paths.logs)
 
-train_dataset = TensorDataset(x_train, y_train)
-test_dataset = TensorDataset(x_test, y_test)
+callbacks = [
+    ModelSummary(max_depth=2),
+    TQDMProgressBar(),
+    ModelCheckpoint(
+        monitor="val_loss",
+        dirpath=paths.checkpoints,
+        filename="best-checkpoint",
+        save_top_k=2,
+        mode="min",
+        save_last=True,
+        every_n_epochs=10,
+    ),
+]
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-val_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+feature_transform = Pipeline(
+    MinMaxScaler(),
+    NumpyToTensor(),
+)
+target_transforms = Pipeline(
+    NumpyToTensor(),
+)
 
+data_module = FileDataModule(
+    save_dir=paths.input,
+    paths=(paths.features, paths.targets),
+    transforms=(feature_transform, target_transforms),
+    rebuild_dataset=rebuild_dataset,
+    batch_size=batch_size,
+    test_size=0.3,
+    indices_path=paths.metadata,
+)
+
+data_module.setup(stage="fit")
 
 trainer = Trainer(
-    default_root_dir=config.paths.output,
-    max_epochs=10000,
+    default_root_dir=root_dir,
+    max_epochs=num_epochs,
     accelerator="gpu",
-    callbacks=[TQDMProgressBar()],
-    gradient_clip_val=0.5,
+    callbacks=callbacks,
     enable_progress_bar=True,
     reload_dataloaders_every_n_epochs=10,
+    logger=logger,
 )
 
-model = FeedForwardNN(layers=layers, activation=nn.functional.tanh)
-
-tuner = Tuner(
-    trainer,
-)
-
-lr_finder = tuner.lr_find(
-    model,
-    train_loader,
-    val_loader,
-    min_lr=1e-8,
-    max_lr=1e-1,
-    num_training=100,
-    early_stop_threshold=50,
-    # mode="linear",
-)
-
-fig = lr_finder.plot(suggest=True, show=True)
-
+model = FeedForwardNN(layers=layers, activation=nn.GELU(), lr=lr)
 
 # Pick point based on plot, or get suggestion
-new_lr = lr_finder.suggestion()
 
-# update hparams of the model
-model.hparams.lr = new_lr
+model = tune_lr(trainer, model, datamodule=data_module) if tune else model
+
+if continue_training:
+    trainer.fit(model, datamodule=data_module, ckpt_path="last")
+else:
+    # delete the checkpoint directory
+    shutil.rmtree(paths.checkpoints, ignore_errors=True)
+    shutil.rmtree(paths.logs, ignore_errors=True)
+    trainer.fit(model, datamodule=data_module)
+
+data_module.setup(stage="test")
+test_score = trainer.test(model, datamodule=data_module)
+
+data_module.setup(stage="predict")
+output = trainer.predict(model, datamodule=data_module)
+
+predictions = torch.cat(output, dim=0).cpu().numpy()
+# predictions = data_module.target_transforms.inverse_transform(predictions)
+# targets = data_module.target_transforms.inverse_transform(data_module.targets)
+targets = data_module.targets.cpu().numpy()
+
+import matplotlib.pyplot as plt
 
 
-trainer.fit(model, train_loader, val_loader)
-
-trainer.test(model, val_loader)
-
-# save the model
-model_path = config.paths.output / "ffnn_model.ckpt"
-trainer.save_checkpoint(model_path)
+x_hat = predictions[:, 0]
+y_hat = predictions[:, 1]
+x = targets[:, 0]
+y = targets[:, 1]
+# hollow circles for predictions
+plt.scatter(
+    x_hat,
+    y_hat,
+    label="Predictions",
+)
+plt.scatter(x, y, label="Targets", marker="+", c="r")
+plt.legend()
+plt.colorbar()
+plt.xlabel("latent 1")
+plt.ylabel("latent 2")
+plt.title("FFNN fit")
+plt.show()
