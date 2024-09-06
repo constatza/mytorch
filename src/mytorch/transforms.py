@@ -24,7 +24,7 @@ class Transformation:
 
 
 class Map(Transformation):
-    """Wrapper for a function that maps the input data to a new space.
+    """Wrapper for a function that maps the input raw to a new space.
     No training is required for this transformation."""
 
     def __init__(self, func: Callable, inverse_func: Callable = None):
@@ -70,9 +70,10 @@ class MinMaxScaler(Transformation):
         self.keepdims = keepdims
 
     def fit(self, train):
-        self.mins = train.min(axis=self.axis, keepdims=self.keepdims)
-        self.maxs = train.max(axis=self.axis, keepdims=self.keepdims)
-        self.maxs[self.maxs == self.mins] = 1
+        self.mins = torch.min(train, dim=self.axis, keepdim=self.keepdims).values
+        self.maxs = torch.max(train, dim=self.axis, keepdim=self.keepdims).values
+        min_eq_max = torch.where(torch.eq(self.mins, self.maxs))
+        self.maxs[min_eq_max] = 1
 
     def transform(self, data):
         if self.mins is None or self.maxs is None:

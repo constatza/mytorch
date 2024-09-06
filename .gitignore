@@ -160,7 +160,7 @@ cython_debug/
 .idea/
 *.xml
 
-# data
+# raw
 *data
 *data/*
 input/

@@ -55,12 +55,7 @@ class EstimatorsConfig(BasicConfig):
     model: TupleLike[str]
     input_shape: Annotated[
         TupleLike, Field(min_length=1, max_length=4)
-    ]  # The shape of the input data
-    convolution_dims: Annotated[int, Field(default=0, ge=0, le=2)]
-    kernel_size: Optional[TupleLike[int]] = None
-    num_layers: Optional[TupleLike[int]] = None
-    latent_size: Optional[TupleLike[int]] = None
-    hidden_size: Optional[TupleLike[int]] = None
+    ]  # The shape of the input raw
 
 
 class TrainingConfig(BasicConfig):
