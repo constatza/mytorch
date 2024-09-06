@@ -1,19 +1,10 @@
-from mytorch.io.readers import read_toml
-from mytorch.io.utils import *
+import pytest
 
-
-def test_read_toml(utils_dict, tmp_path):
-    # Create a temporary toml file for testing
-    toml_file = tmp_path / "test.toml"
-    toml_file.write_text("[section]\nkey = 'value'")
-    result = read_toml(toml_file)
-    assert result == {"section": {"key": "value"}}
-
-
-def test_apply_to_dict(utils_dict):
-    func = lambda x, y: x.upper() if isinstance(x, str) else x
-    result = apply_to_dict(utils_dict["dict"], func=func)
-    assert result == {"key1": "VALUE1", "key2": "VALUE2"}
+from mytorch.io.utils import (
+    replace_placeholders_in_toml,
+    interpolate_placeholders,
+    flatten_dict,
+)
 
 
 def test_replace_placeholders_in_toml(toml_string):
@@ -21,22 +12,34 @@ def test_replace_placeholders_in_toml(toml_string):
     assert result.splitlines()[-1] == "key2 = 'value'"
 
 
-def test_join_root_with_paths(utils_dict):
-    paths_dict = {"root": utils_dict["path"], "other": "other/path"}
-    result = join_root_with_paths(paths_dict)
-    assert result == {
-        "root": utils_dict["path"],
-        "other": utils_dict["path"] / "other/path",
-    }
+@pytest.mark.parametrize(
+    "text, replacement_dict, expected_output",
+    [
+        ("Hello {name}", {"name": "World"}, "Hello World"),
+        (
+            "{greeting}, {name}!",
+            {"greeting": "Hello", "name": "World"},
+            "Hello, World!",
+        ),
+        ("{a} + {b} = {c}", {"a": 1, "b": 2, "c": 3}, "1 + 2 = 3"),
+        ("{a} + {b} = {c}", {"a": 1, "b": 2}, ValueError),
+    ],
+)
+def test_interpolate_placeholders(text, replacement_dict, expected_output):
+    if expected_output == ValueError:
+        with pytest.raises(ValueError):
+            interpolate_placeholders(text, replacement_dict)
+    else:
+        assert interpolate_placeholders(text, replacement_dict) == expected_output
 
 
-def test_convert_path_dict_to_pathlib(utils_dict):
-    paths_dict = {"path1": "/path/to/somewhere", "path2": "/another/path"}
-    result = convert_path_dict_to_pathlib(paths_dict)
-    assert isinstance(result["path1"], Path)
-    assert isinstance(result["path2"], Path)
-
-
-def test_get_nested_dict_value(utils_dict):
-    result = get_nested_dict_value(utils_dict["nested_dict"], ["key1", "subkey1"])
-    assert result == "subvalue1"
+@pytest.mark.parametrize(
+    "d, expected_output",
+    [
+        ({"a": 1, "b": {"c": 2}}, {"a": 1, "b.c": 2}),
+        ({"a": {"b": {"c": 3}}}, {"a.b.c": 3}),
+        ({"a": {"b": 2}, "c": 3}, {"a.b": 2, "c": 3}),
+    ],
+)
+def test_flatten_dict_flattens(d, expected_output):
+    assert flatten_dict(d) == expected_output

@@ -29,8 +29,10 @@ def utils_dict():
 @pytest.fixture
 def toml_string():
     toml_string = """
+    [other]
+    key0 = '{section.subsection.key1}'
     [section.subsection]
-    key = 'value'
-    key2 = '{section.subsection.key}'
+    key1 = 'value'
+    key2 = '{other.key0}'
     """
     return "\n".join([line.lstrip() for line in toml_string.splitlines()])
