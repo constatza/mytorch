@@ -91,7 +91,7 @@ class FileDataModule(LightningDataModule):
         self.y_test = None
 
         self.rebuild_dataset = rebuild_dataset
-        # self.prepare_data()
+        self.indices_path = indices_path
 
     def path_to(self, filename: str, suffix: str = ".npy") -> Path:
         return (self.save_dir / filename).with_suffix(suffix)
@@ -169,9 +169,9 @@ class FileDataModule(LightningDataModule):
 
     @property
     def metadata(self):
-        if self._metadata is None:
-            self._metadata = np.load(self.path_to("metadata", ".npz"))
-        return self._metadata
+        if self.indices_path is not None:
+            return np.load(self.indices_path)
+        return self._metadata or np.load(self.path_to("metadata", ".npz"))
 
     def setup(self, stage: str | None = None):
         # To be implemented by child classes
