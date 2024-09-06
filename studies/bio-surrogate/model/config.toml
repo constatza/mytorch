@@ -14,12 +14,14 @@ ffnn = "{paths.root}/ffnn/"
 
 
 features = "{paths.raw}/solutions/parameters.npy"
-targets = "{paths.cae}/input/features.npy"
+targets = "{paths.cae}/input/solutions.npy"
+metadata = "{paths.ffnn}/input/metadata.npz"
 
-input = "{paths.ffnn}/input/"
+input = "{paths.workdir}/input/"
 output = "{paths.workdir}/output/"
 
 figures = "{paths.workdir}/figures/"
+checkpoints = "{paths.workdir}/checkpoints/"
 checkpoints_ffnn = "{paths.ffnn}/checkpoints/"
 checkpoints_cae = "{paths.cae}/checkpoints/"
 logs = "{paths.workdir}/logs/"
