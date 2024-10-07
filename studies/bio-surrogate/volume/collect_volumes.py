@@ -27,6 +27,7 @@ def main():
 
     from mytorch.io.readers import read_study
 
+    
     study = read_study("./config.toml")
     volumes = study.paths.volumes
     times = study.paths.times
