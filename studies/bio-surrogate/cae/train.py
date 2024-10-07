@@ -28,12 +28,13 @@ def main():
 
     torch.set_float32_matmul_precision("high")
 
-    config_file = "./config.toml"
+    config_file = "./configs/revisitCAE_forOtherFieds.toml"
     config = read_study(config_file)
     paths = config.paths
     root_dir = paths.workdir
 
     logger = CSVLogger(paths.logs)
+    # logger = TensorBoardLogger(save_dir=paths.output, name="logs")
 
     callbacks = [
         ModelSummary(max_depth=2),
@@ -55,14 +56,15 @@ def main():
     )
 
     data_module = FileDataModule(
-        save_dir=paths.input,
-        paths=paths.features,
-        transforms=x_transforms,
-        rebuild_dataset=rebuild_dataset,
-        batch_size=64,
-        test_size=0.2,
+        save_dir=paths.output,
+        paths=(paths.features),
+        transforms=(x_transforms),
+        test_size=0.3,
+        val_size=0.5,
+        batch_size=500,
     )
 
+    data_module.prepare_data()
     data_module.setup(stage="fit")
 
     trainer = Trainer(
