@@ -13,6 +13,9 @@ class FeedForwardNN(LightningModule):
         layers: TupleLike = None,
         activation: nn.Module = nn.GELU(),
         lr: float = 1e-3,
+        layer_norm: bool = False,
+        dropout: float = 0,
+        batch_norm: bool = False,
     ):
         super(FeedForwardNN, self).__init__()
         self.save_hyperparameters()
@@ -22,8 +25,14 @@ class FeedForwardNN(LightningModule):
 
         for i in range(self.num_layers - 1):
             self.layers.append(nn.Linear(layers[i], layers[i + 1]))
-            self.layers.append(nn.LayerNorm(layers[i + 1]))
+            if layer_norm:
+                self.layers.append(nn.LayerNorm(layers[i + 1]))
+            elif batch_norm:
+                self.layers.append(nn.BatchNorm1d(layers[i + 1]))
+
             self.layers.append(activation)
+            if dropout > 0:
+                self.layers.append(nn.Dropout(dropout))
 
         self.layers.append(nn.Linear(layers[-2], layers[-1]))
         self.layers = nn.Sequential(*self.layers)

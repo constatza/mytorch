@@ -1,68 +1,91 @@
 import torch
 import torch.nn as nn
-from lightning.pytorch.callbacks import TQDMProgressBar
+from lightning.pytorch.callbacks import RichProgressBar, ModelCheckpoint, ModelSummary
 from lightning.pytorch.trainer import Trainer
+from lightning.pytorch.loggers import TensorBoardLogger
 
 from mytorch.datamodules import FileDataModule
 from mytorch.io.readers import read_study
 from mytorch.networks.ffnns import FeedForwardNN
+from mytorch.transforms import NumpyToTensor, MinMaxScaler
+from mytorch.pipeline import Pipeline
 
 torch.set_float32_matmul_precision("medium")
+lr = 1e-2
+EPOCHS = 1500
+layers = [12, 100, 1000, 100, 1]
+dropout = 0
+batch_norm = False
+layer_norm = True
 
 config_file = "./config.toml"
 config = read_study(config_file)
 paths = config.paths
 
-data_module = FileDataModule(
-    default_dir=paths.workdir,
-    data_path=paths.data,
-    targets_path=paths.targets,
+checkpointer = ModelCheckpoint(
+    monitor="val_loss",
+    dirpath=paths.checkpoints,
+    filename="best-checkpoint",
+    save_top_k=1,
+    mode="min",
+    save_last=True,
+    every_n_epochs=10,
 )
 
+logger = TensorBoardLogger(save_dir=paths.output, name="logs")
 
-layers = [3, 5, 1]
+callbacks = [
+    ModelSummary(max_depth=2),
+    RichProgressBar(leave=True),
+    checkpointer,
+]
+
+feature_transform = Pipeline(
+    NumpyToTensor(),
+    MinMaxScaler(),
+)
+
+preprocessors = (lambda x: x, lambda x: x[-5, :].reshape(-1, 1))
+target_transforms = Pipeline(
+    NumpyToTensor(),
+    MinMaxScaler(),
+)
+data_module = FileDataModule(
+    save_dir=paths.output,
+    paths=(paths.features, paths.targets),
+    transforms=(feature_transform, target_transforms),
+    test_size=0.3,
+    val_size=0.5,
+    batch_size=500,
+    preprocessors=preprocessors,
+)
+
 
 trainer = Trainer(
     default_root_dir=config.paths.output,
-    max_epochs=10000,
+    max_epochs=EPOCHS,
     accelerator="gpu",
-    callbacks=[TQDMProgressBar()],
-    gradient_clip_val=0.5,
+    callbacks=callbacks,
     enable_progress_bar=True,
     reload_dataloaders_every_n_epochs=10,
+    deterministic=True,
+    logger=logger,
 )
 
-model = FeedForwardNN(layers=layers, activation=nn.functional.tanh)
+model = FeedForwardNN(
+    layers=layers,
+    activation=nn.Tanh(),
+    lr=lr,
+    dropout=dropout,
+    batch_norm=batch_norm,
+    layer_norm=layer_norm,
+)
 
-# tuner = Tuner(
-#     trainer,
-# )
-#
-# lr_finder = tuner.lr_find(
-#     model,
-#     train_loader,
-#     val_loader,
-#     min_lr=1e-8,
-#     max_lr=1e-1,
-#     num_training=100,
-#     early_stop_threshold=50,
-#     # mode="linear",
-# )
-#
-# fig = lr_finder.plot(suggest=True, show=True)
-#
-#
-# # Pick point based on plot, or get suggestion
-# new_lr = lr_finder.suggestion()
-#
-# # update hparams of the model
-# model.hparams.lr = new_lr
-#
 #
 trainer.fit(model, datamodule=data_module)
 #
-# trainer.test(model, val_loader)
+model = FeedForwardNN.load_from_checkpoint(checkpointer.best_model_path)
+print(checkpointer.best_model_path)
+trainer.test(model, datamodule=data_module)
 
-# save the model
-model_path = config.paths.output / "ffnn_model.ckpt"
-trainer.save_checkpoint(model_path)
+predictions = trainer.predict(model, datamodule=data_module)
