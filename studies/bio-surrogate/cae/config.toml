@@ -22,20 +22,22 @@ optimizer = "RAdam"
 
 
 [paths]
-raw = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/data/raw"
+#raw = "M:/constantinos/data/bio/5-equations/solutions"
 workdir = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/{study.name}"
 
 features = "{paths.input}/solutions.npy"
 
-input = "{paths.workdir}/input/"
-output = "{paths.workdir}/output/"
-figures = "{paths.workdir}/figures/"
-checkpoints = "{paths.workdir}/checkpoints/"
-logs = "{paths.workdir}/logs/"
+input = "M:/constantinos/data/bio/5-equations/solutions/"
+output = "C:/Users/cluster/Documents/LargeRves/Bio/aux_output/caeOutput/"
+figures = "{paths.output}/figures/"
+checkpoints = "{paths.output}/checkpoints/"
+logs = "{paths.output}/logs/"
 latent = "{paths.output}/latent.npy"
+targets = "{paths.input}/volumes.csv"
+
 
 predictions = "{paths.output}/predictions.npy"
-parameters = "{paths.raw}/solutions/parameters.npy"
+parameters = "{paths.input}/parameters.npy"
 
 
 
