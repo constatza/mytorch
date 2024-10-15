@@ -6,8 +6,7 @@ delete_old = true
 num_trials = 100
 
 [model]
-name = "caes.LinearChannelDescentVAE"
-#name = "caes.LinearChannelDescentLatent1d"
+name = "caes.LinearChannelDescentLatent1d"
 kernel_size = [5]
 num_layers = 4
 latent_size = [2, 12, 1]
@@ -22,13 +21,13 @@ optimizer = "RAdam"
 
 
 [paths]
-#raw = "M:/constantinos/data/bio/5-equations/solutions"
+dataroot = "M:/constantinos/data/bio/5-equations/"
 workdir = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/{study.name}"
 
 features = "{paths.input}/solutions.npy"
 
-input = "M:/constantinos/data/bio/5-equations/solutions/"
-output = "C:/Users/cluster/Documents/LargeRves/Bio/aux_output/caeOutput/"
+input = "{paths.dataroot}/input/"
+output = "{paths.dataroot}/output/"
 figures = "{paths.output}/figures/"
 checkpoints = "{paths.output}/checkpoints/"
 logs = "{paths.output}/logs/"
