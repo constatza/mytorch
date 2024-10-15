@@ -3,7 +3,10 @@ import shutil
 import numpy as np
 import torch
 from lightning.pytorch.callbacks import TQDMProgressBar, ModelCheckpoint, ModelSummary
+
 from lightning.pytorch.loggers import CSVLogger
+
+# from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.trainer import Trainer
 
 from mytorch.datamodules import FileDataModule
@@ -15,23 +18,25 @@ from mytorch.utils import tune_lr
 
 
 def main():
-    num_epochs = 350
-    num_layers = 2
-    kernel_size = 5
-    latent_size = 4
-    reduced_channels = 10
-    reduced_timesteps = 100
-    lr = 1e-3
-    tune = False
-    continue_training = False
-    rebuild_dataset = True
 
     torch.set_float32_matmul_precision("high")
 
-    config_file = "./configs/revisitCAE_forOtherFieds.toml"
+    config_file = r"./config.toml"
     config = read_study(config_file)
     paths = config.paths
     root_dir = paths.workdir
+
+    # Access hyperparameters
+    num_epochs = config.training.num_epochs
+    kernel_size = config.model.kernel_size
+    latent_size = config.model.latent_size
+    reduced_channels = config.hyperparams.reduced_channels
+    reduced_timesteps = config.hyperparams.reduced_timesteps
+    lr = config.hyperparams.learning_rate
+    tune = config.hyperparams.tune
+    continue_training = config.hyperparams.continue_training
+    rebuild_dataset = config.hyperparams.rebuild_dataset
+    num_layers = config.hyperparams.num_layers
 
     logger = CSVLogger(paths.logs)
     # logger = TensorBoardLogger(save_dir=paths.output, name="logs")

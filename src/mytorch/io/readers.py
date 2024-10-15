@@ -12,6 +12,7 @@ from mytorch.io.config import (
     StudyConfig,
     PathsConfig,
     TrainingConfig,
+    HyperparamsConfig,
 )
 from mytorch.io.utils import (
     replace_placeholders_in_toml,
@@ -48,6 +49,7 @@ def get_study_config(config: Dict[str, Any]) -> StudyConfig:
     model_config = config.get("model", None)
     training_config = config.get("training", None)
     paths_config = config.get("paths", None)
+    hyperparams_config = config.get("hyperparameters", None)
 
     paths_config = get_paths_config(paths_config)
     model = None
@@ -58,11 +60,16 @@ def get_study_config(config: Dict[str, Any]) -> StudyConfig:
     if training_config is not None:
         training = TrainingConfig(**training_config)
 
+    hyperparams = None
+    if hyperparams_config is not None:
+        hyperparams = HyperparamsConfig(**hyperparams_config)
+
     return StudyConfig(
         name=study_config["name"],
         estimators=model,
         training=training,
         paths=paths_config,
+        hyperparams=hyperparams,
     )
 
 
