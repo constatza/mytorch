@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Tuple
 
 import torch
 from pydantic import (
@@ -12,10 +12,7 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_snake
 
-from mytorch.mytypes import (
-    TupleLike,
-    Maybe,
-)
+from mytorch.mytypes import TupleLike, Maybe
 
 
 class BasicConfig(BaseModel):
@@ -29,7 +26,6 @@ class BasicConfig(BaseModel):
 
 
 class PathsConfig(BasicConfig):
-
     @model_validator(mode="before")
     def validate_paths(cls, data):
         for key, path in data.items():
@@ -67,6 +63,20 @@ class TrainingConfig(BasicConfig):
     )  # The device to train on (e.g., 'cpu' or 'cuda')
 
 
+# Define a new HyperparamsConfig class for hyperparameters
+class HyperparamsConfig(BasicConfig):
+    num_epochs: int = 100
+    num_layers: int = 2
+    kernel_size: int = 5
+    latent_size: int = 4
+    reduced_channels: int = 10
+    reduced_timesteps: int = 100
+    learning_rate: float = 1e-3
+    tune: bool = False
+    continue_training: bool = False
+    rebuild_dataset: bool = True
+
+
 class StudyConfig(BasicConfig):
     class Config:
         extra = "ignore"
@@ -75,6 +85,7 @@ class StudyConfig(BasicConfig):
     name: Optional[str] = None
     training: Optional[TrainingConfig]
     estimators: Optional[EstimatorsConfig]
+    hyperparams: Optional[HyperparamsConfig]
     description: Optional[str] = ""
     variable: Optional[str] = "x"
     delete_old: Optional[bool] = True

@@ -11,7 +11,7 @@ from mytorch.io.config import (
     TrainingConfig,
 )
 from mytorch.io.readers import import_module
-from mytorch.trainers import Trainer
+
 
 torch.manual_seed(0)
 
