@@ -44,7 +44,6 @@ class FileDataModule(LightningDataModule):
         test_size: float = 0.2,  # percentage of the whole dataset
         val_size: float = 0.5,  # percentage of the test dataset
         batch_size: int = 64,
-        rebuild_dataset: bool = False,
         names: TupleLike[str] = ("features", "targets"),
         indices_path: Optional[FilePath] = None,
     ):
@@ -72,8 +71,10 @@ class FileDataModule(LightningDataModule):
         self.test_size = test_size
         self.val_size = val_size
         self.indices_path = indices_path
-        self._metadata = None
-        self._dataset = None
+        self._indices = None
+        self._shapes = None
+        self._features = None
+        self._targets = None
 
         self.input_shape = None
         self.output_shape = None
@@ -90,26 +91,38 @@ class FileDataModule(LightningDataModule):
         self.x_test = None
         self.y_test = None
 
-        self.rebuild_dataset = rebuild_dataset
-        self.indices_path = indices_path
-
-    def path_to(self, filename: str, suffix: str = ".npy") -> Path:
+    def local_path_to(self, filename: str, suffix: str = ".npy") -> Path:
         return (self.save_dir / filename).with_suffix(suffix)
 
-    def prepare_data(self):
-        if not self.path_to("dataset").exists() or self.rebuild_dataset:
-            logger.info("Preparing data.")
-            data = self.get_data(self.paths, self.preprocessors)
-            logger.info("Saving dataset.")
-            self.save_data(data)
-            logger.info("Saving metadata.")
-            self.save_metadata(data)
+    def try_create_symlink(self, target, source):
+        try:
+            Path(self.local_path_to(target)).symlink_to(source)
+        except OSError as e:
+            logger.warn(f"Couldn't create symbolic link.\n {e}")
 
-    def save_data(self, data):
-        savez_asarray(
-            self.path_to("dataset"),
-            **{name: data for name, data in zip(self.names, data)},
-        )
+
+    def prepare_data(self):
+        if not self.local_path_to("features").exists():
+            self.try_create_symlink("features", self.paths[0])
+
+        if not self.local_path_to("targets").exists():
+            self.try_create_symlink("targets", self.paths[1])
+
+        if not self.local_path_to("shapes").exists():
+            logger.info("Saving dataset shapes.")
+            data = (self.features, self.targets)
+            self.save_shapes(data)
+
+        if self.indices_path:
+            # if external path given
+            logger.info(
+                f"Loading train/validation/test indices from {self.indices_path}."
+            )
+            self.try_create_symlink("indices", self.indices_path)
+        elif not self.local_path_to("indices").exists():
+            logger.info("Generating new train/validation/test indices.")
+            self.save_indices(data)
+            self.indices_path = self.local_path_to("indices")
 
     def get_train_val_test_indices(self, num_samples: int = None):
         # Save indices for train, val, test
@@ -125,82 +138,79 @@ class FileDataModule(LightningDataModule):
             "num_samples": num_samples,
         }
 
-    def save_metadata(self, data):
+    def save_indices(self, data):
         """Save metadata to a file.
         Train/Val/Test indices are generated if not provided in indices_path.
         """
         num_samples = data[0].shape[0]
-        if self.indices_path is None:
-            logger.warn("Indices being split into train/validation/test.")
-            indices = self.get_train_val_test_indices(num_samples)
-        else:
-            logger.info(
-                f"Loading train/validation/test indices from {self.indices_path}."
-            )
-            metadata = np.load(self.indices_path)
-            indices = {
-                "train_idx": metadata["train_idx"],
-                "val_idx": metadata["val_idx"],
-                "test_idx": metadata["test_idx"],
-            }
 
-        metadata = {
-            **indices,
-            **{name + "_shape": data.shape for name, data in zip(self.names, data)},
-        }
-
+        indices = self.get_train_val_test_indices(num_samples)
         savez_asarray(
-            self.path_to("metadata"),
-            **metadata,
+            self.local_path_to("indices"),
+            **indices)
+
+
+    def save_shapes(self, data):
+        shapes = {name: data.shape for name, data in zip(self.names, data)}
+        # write shapes to npz array
+        savez_asarray(
+            self.local_path_to("shapes"),
+            **shapes,
         )
 
-    @staticmethod
-    def get_data(paths: tuple, preprocessors: Iterable) -> tuple[np.ndarray]:
-        data_raw = (read_array_as_numpy(path) for path in paths)
-        return tuple(
-            preprocessor(data) for data, preprocessor in zip(data_raw, preprocessors)
-        )
 
     @property
-    def dataset(self):
-        if self._dataset is None:
-            self._dataset = np.load(self.path_to("dataset", ".npz"))
-        return self._dataset
-
-    @property
-    def metadata(self):
-        if self.indices_path is not None:
+    def indices(self):
+        if not self._indices:
             return np.load(self.indices_path)
-        return self._metadata or np.load(self.path_to("metadata", ".npz"))
+        return self._indices
+
+    @property
+    def shapes(self):
+        if not self._shapes:
+            self._shapes = np.load(self.local_path_to("shapes", ".npz"))
+        return self._shapes
+
+    @property
+    def features(self):
+        if not self._features:
+            return np.load(self.paths[0])
+        return self._features
+
+    @property
+    def targets(self):
+        if not self._targets:
+            return np.load(self.paths[1])
+        return self._targets
 
     def setup(self, stage: str | None = None):
         # To be implemented by child classes
-        self.input_shape = self.metadata["features_shape"]
+        self.input_shape = self.shapes["features"]
         self.feature_transforms = self.transforms[0]
         if self.targets_exist:
             self.target_transforms = self.transforms[1]
-            self.output_shape = self.metadata["targets_shape"]
+            self.output_shape = self.shapes["targets"]
         else:
             self.output_shape = self.input_shape
             self.target_transforms = None
 
         if stage == "fit":
-            train_idx = self.metadata["train_idx"]
-            val_idx = self.metadata["val_idx"]
+            train_idx = self.indices["train_idx"]
+            val_idx = self.indices["val_idx"]
 
             self.x_train = self.feature_transforms.fit_transform(
-                self.dataset["features"][train_idx]
+                self.features[train_idx]
             )
             self.x_val = self.feature_transforms.transform(
-                self.dataset["features"][val_idx]
+                self.features[val_idx]
             )
 
             if self.targets_exist:
                 self.y_train = self.target_transforms.fit_transform(
-                    self.dataset["targets"][train_idx]
+                    self.targets[train_idx]
                 )
                 self.y_val = self.target_transforms.transform(
-                    self.dataset["targets"][val_idx]
+                    self.targets[val_idx]
                 )
             else:
                 self.y_train = self.x_train
@@ -210,11 +220,11 @@ class FileDataModule(LightningDataModule):
             self.val_dataset = TensorDataset(self.x_val, self.y_val)
 
         elif stage == "test":
-            test_idx = self.metadata["test_idx"]
-            x_test = self.dataset["features"][test_idx]
+            test_idx = self.indices["test_idx"]
+            x_test = self.features[test_idx]
             self.x_test = self.feature_transforms.transform(x_test)
             if self.targets_exist:
-                y_test = self.dataset["targets"][test_idx]
+                y_test = self.targets[test_idx]
                 self.y_test = self.target_transforms.transform(y_test)
             else:
                 self.y_test = self.x_test
@@ -222,12 +232,12 @@ class FileDataModule(LightningDataModule):
             self.test_dataset = TensorDataset(self.x_test, self.y_test)
 
         elif stage == "predict":
-            self.features = self.feature_transforms.transform(self.dataset["features"])
+            features = self.feature_transforms.transform(self.features)
             if self.targets_exist:
-                self.targets = self.target_transforms.transform(self.dataset["targets"])
+                targets = self.target_transforms.transform(self.targets)
             else:
-                self.targets = self.features
-            self.predict_dataset = TensorDataset(self.features, self.targets)
+                targets = self.features
+            self.predict_dataset = TensorDataset(features, targets)
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
