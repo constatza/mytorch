@@ -6,7 +6,7 @@ from lightning import Trainer
 from mytorch.datamodules import FileDataModule
 from mytorch.io.readers import read_study
 from mytorch.metrics import normalized_rmse
-from mytorch.networks.caes import LinearChannelDescentLatent1d
+from mytorch.networks.caes import BasicCAE
 from mytorch.networks.ffnns import FeedForwardNN
 from mytorch.pipeline import Pipeline
 from mytorch.transforms import MinMaxScaler, NumpyToTensor, StandardScaler
@@ -66,7 +66,7 @@ def predict(paths):
         paths.checkpoints_ffnn / "best-checkpoint.ckpt"
     )
 
-    second_network = LinearChannelDescentLatent1d.load_from_checkpoint(
+    second_network = BasicCAE.load_from_checkpoint(
         paths.checkpoints_cae / "best-checkpoint.ckpt"
     )
 

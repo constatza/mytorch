@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/cluster/constantinos/mytorch/src/mytorch/mlruns/0/a8ea17f04c8b4fbb8c6151f10fa8b8a0/artifacts
+end_time: 1729513088888
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: a8ea17f04c8b4fbb8c6151f10fa8b8a0
+run_name: Optuna_Study
+run_uuid: a8ea17f04c8b4fbb8c6151f10fa8b8a0
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1729513088832
+status: 4
+tags: []
+user_id: cluster
