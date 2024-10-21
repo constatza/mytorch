@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from lightning import LightningModule
 
-from mytorch.networks.caes.cae1d import LinearChannelDescentLatent1d
+from mytorch.networks.caes.cae1d import BasicCAE
 
 
 class VAE(nn.Module):
@@ -134,7 +134,7 @@ class LinearChannelDescentVAE(VAE2):
 
     def __init__(self, *args, beta: float, **kwargs):
         self.save_hyperparameters()
-        base_cae = LinearChannelDescentLatent1d(*args, **kwargs)
+        base_cae = BasicCAE(*args, **kwargs)
         super(LinearChannelDescentVAE, self).__init__(
             cae=base_cae,
             beta=beta,

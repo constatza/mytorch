@@ -201,11 +201,11 @@ class LinearChannelDescentLatent2d(CAE1d):
         ]
 
 
-class LinearChannelDescentLatent1d(LinearChannelDescentLatent2d):
+class BasicCAE(LinearChannelDescentLatent2d):
     def __init__(self, *args, **kwargs):
         self.save_hyperparameters()
         _ = kwargs.pop("latent_size", None)
-        super(LinearChannelDescentLatent1d, self).__init__(*args, **kwargs)
+        super(BasicCAE, self).__init__(*args, **kwargs)
         self.example_input_array = torch.randn(self.hparams.input_shape)
 
         self.linear_encoder = nn.Linear(
@@ -218,7 +218,7 @@ class LinearChannelDescentLatent1d(LinearChannelDescentLatent2d):
         )
 
     def encode(self, x):
-        x = super(LinearChannelDescentLatent1d, self).encode(x)
+        x = super(BasicCAE, self).encode(x)
         x = self.activation(x)
         x = torch.flatten(x, 1)
         x = self.activation(x)
@@ -231,11 +231,11 @@ class LinearChannelDescentLatent1d(LinearChannelDescentLatent2d):
         x = x.view(
             x.size(0), self.hparams.reduced_channels, self.hparams.reduced_timesteps
         )
-        x = super(LinearChannelDescentLatent1d, self).decode(x)
+        x = super(BasicCAE, self).decode(x)
         return x
 
 
-class ForcedLatentSpace(LinearChannelDescentLatent1d):
+class ForcedLatentSpace(BasicCAE):
 
     def __init__(self, *args, **kwargs):
         super(ForcedLatentSpace, self).__init__(*args, **kwargs)

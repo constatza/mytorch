@@ -1,76 +1,22 @@
-import importlib
+from collections import namedtuple
 from typing import Dict, Any, List
 
 import numpy as np
 import torch
-from pydantic import FilePath
-from pydantic import validate_call
-from tomlkit import parse
+from pydantic import validate_call, FilePath
+from pathlib import Path
 
-from mytorch.io.config import (
-    EstimatorsConfig,
-    StudyConfig,
-    PathsConfig,
-    TrainingConfig,
-    HyperparamsConfig,
-)
-from mytorch.io.utils import (
-    replace_placeholders_in_toml,
-)
-from mytorch.mytypes import Maybe
+import re
+import tomlkit
 
 
-@validate_call
-def import_module(name: Maybe[str]) -> Any:
-    """Use importlib to import the model class from the model's module.
-    Name is separated by dots to indicate the module and the class.
-    """
-    if name is None:
-        return None
-    module_name, class_name = name.rsplit(".", 1)
-    module = importlib.import_module(module_name)
-    return getattr(module, class_name)
-
-
-@validate_call
-def get_model_config(d: Dict) -> EstimatorsConfig:
-    d["model"] = d["name"]
-    return EstimatorsConfig(**d)
-
-
-@validate_call
-def get_paths_config(paths_dict: Dict) -> PathsConfig:
-    return PathsConfig(**paths_dict)
-
-
-@validate_call
-def get_study_config(config: Dict[str, Any]) -> StudyConfig:
-    study_config = config.get("study", None)
-    model_config = config.get("model", None)
-    training_config = config.get("training", None)
-    paths_config = config.get("paths", None)
-    hyperparams_config = config.get("hyperparameters", None)
-
-    paths_config = get_paths_config(paths_config)
-    model = None
-    if model_config is not None:
-        model = get_model_config(model_config)
-
-    training = None
-    if training_config is not None:
-        training = TrainingConfig(**training_config)
-
-    hyperparams = None
-    if hyperparams_config is not None:
-        hyperparams = HyperparamsConfig(**hyperparams_config)
-
-    return StudyConfig(
-        name=study_config["name"],
-        estimators=model,
-        training=training,
-        paths=paths_config,
-        hyperparams=hyperparams,
-    )
+def check_paths(paths_dict: dict) -> None:
+    for key, path_name in paths_dict.items():
+        path = Path(path_name)
+        if path.is_file() and not path.exists():
+            raise FileNotFoundError(f"{key} path not found: {path_name}")
+        elif path.is_dir():
+            path.mkdir(parents=True, exist_ok=True)
 
 
 @validate_call
@@ -78,15 +24,61 @@ def read_toml(config_path: FilePath) -> Dict:
     """Reads a toml configuration file."""
     with open(config_path, "r") as file:
         content = file.read()
-    replaced = replace_placeholders_in_toml(content)
-    parsed = parse(replaced)
+    parsed = parse_self_referencing_toml(content)
     return parsed
 
 
+def parse_self_referencing_toml(toml_string):
+    """
+    Parses a TOML string and resolves self-references in the format {table.key}.
+
+    Args:
+        toml_string (str): The TOML input string with potential self-references.
+
+    Returns:
+        dict: The resolved TOML data as a dictionary.
+    """
+    data = tomlkit.parse(toml_string)
+    resolving = set()  # To track and prevent circular references
+    pattern = re.compile(r"\{(.+?)\}")  # Regex pattern to find {table.key}
+
+    def resolve(value):
+        """Recursively resolve a single value (either string or other data types)."""
+        if isinstance(value, str):
+            matches = pattern.findall(value)
+            for match in matches:
+                table, key = match.split(".")
+                # Recursive resolution of reference
+                if table in data and key in data[table]:
+                    if (table, key) in resolving:
+                        raise ValueError(
+                            f"Circular reference detected in {table}.{key}"
+                        )
+                    # Track the resolving process to prevent circular references
+                    resolving.add((table, key))
+                    referenced_value = resolve(data[table][key])
+                    resolving.remove((table, key))
+
+                    # Replace placeholder with the actual resolved value
+                    value = value.replace(f"{{{match}}}", str(referenced_value))
+        return value
+
+    def resolve_all():
+        """Recursively resolve all references in the TOML data."""
+        for table, contents in data.items():
+            for key, value in contents.items():
+                data[table][key] = resolve(value)
+
+    # Resolve all self-references
+    resolve_all()
+
+    return data
+
+
 @validate_call
-def read_study(config_path: FilePath) -> StudyConfig:
-    config: Dict = read_toml(config_path)
-    config: Dict = get_study_config(config)
+def load_config(config_path: FilePath) -> dict:
+    config: dict = read_toml(config_path)
+    check_paths(config["paths"])
     return config
 
 
@@ -100,9 +92,3 @@ def read_array_as_numpy(path: FilePath):
         return torch.load(path).numpy()
     else:
         raise ValueError(f"Unsupported file type: {path.suffix}")
-
-
-@validate_call(config={"arbitrary_types_allowed": True})
-def load_subarray(path: FilePath, indices: np.ndarray | List[int]) -> np.ndarray:
-    """Loads a subarray from a larger array."""
-    return read_array_as_numpy(path)[indices]
