@@ -11,7 +11,7 @@ from mytorch.io.readers import read_study
 from mytorch.networks.ffnns import FeedForwardNN
 from mytorch.pipeline import Pipeline
 from mytorch.transforms import NumpyToTensor, MinMaxScaler
-from mytorch.utils import tune_lr
+from mytorch.utils.system import tune_lr
 
 config_file = "./config.toml"
 config = read_study(config_file)
