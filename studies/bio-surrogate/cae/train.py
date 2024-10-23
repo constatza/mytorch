@@ -46,7 +46,7 @@ def training(hparams):
 
     x_transforms = Pipeline(
         NumpyToTensor(),
-        StandardScaler(axis=(0, -1)),
+        StandardScaler(dim=(0, -1)),
     )
 
     data_module = FileDataModule(

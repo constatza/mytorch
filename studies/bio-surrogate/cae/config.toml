@@ -1,10 +1,10 @@
-[info]
-name = "cae"
-description = "diplacements & pressure from porous media flow"
-variable = "P"
+[mlflow]
+experiment_name = "cae"
+log_models = true
 
 [optuna]
-n_trials = 100
+n_trials = 3
+direction = "minimize"
 
 [train]
 batch_size = 64
@@ -13,23 +13,20 @@ epochs = 10
 [optimizer]
 name = "Adam"
 lr = {type = "float", low = 0.0001, high = 0.01, step = 0.0001}  # Range
-weight_decay = 0.0005  # Literal value
 
 [scheduler]
 name = "StepLR"
 interval = "epoch"
-frequency = 1
-step_size = 1
-gamma = {choices = [0.1, 0.5, 0.9]}  # Choices
 
 [pruner]
 name = "MedianPruner"
-n_startup_trials = 5
-interval_steps = 1
+n_startup_trials = 10
+interval_steps = 10
 
 [trainer]
 experiment_name = "my_experiment"
 max_epochs = 10
+gpu = "auto"
 
 
 # Model-specific hyperparameters (defines the structure of the neural network)
@@ -41,37 +38,35 @@ kernel_size = 3
 reduced_channels = 10
 reduced_timesteps =  {low = 1, high = 600, type = "int" }
 
-[datamodule]
-
-name = "FileDataModule"
-train_transforms = ["mytorch.transforms.ToTensor"]
-save_dir = "{paths.output}"
-batch_size = 64
-num_workers = 4
-shuffle = true
-pin_memory = true
-
+[transforms]
+features = [
+    {name = "NumpyToTensor"},
+    {name = "StandardScaler", dim = [0, -1]}
+]
 
 # Sampler configuration for hyperparameter search
 [sampler]
 name = "TPESampler"  # Example of using a sampler
 
+[datamodule]
+name = "FileDataModule"
+test_size = 0.3
+batch_size = 64
+
 [paths]
 dataroot = "M:/constantinos/data/bio/5-equations/"
-workdir = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/{study.name}"
-
+workdir = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/{mlflow.run_name}"
 features = "{paths.input}/solutions.npy"
-
 input = "{paths.dataroot}/input/"
 output = "{paths.dataroot}/output/"
 figures = "{paths.output}/figures/"
 checkpoints = "{paths.output}/checkpoints/"
 logs = "{paths.output}/logs/"
 latent = "{paths.output}/latent.npy"
-targets = "{paths.input}/volumes.csv"
-
+#targets = "{paths.input}/volumes.csv"
 predictions = "{paths.output}/predictions.npy"
 parameters = "{paths.input}/parameters.npy"
+tracking_uri = "file:///{paths.dataroot}/mlruns/"
 
 
 
