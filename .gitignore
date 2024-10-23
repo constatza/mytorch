@@ -170,6 +170,7 @@ processed/
 interim/
 external/
 temp/
+mlflow/
 *.zip
 *.tar
 *.gz
@@ -182,3 +183,4 @@ temp/
 *.dbf
 /.idea
 *.xml
+

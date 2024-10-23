@@ -10,13 +10,16 @@ import re
 import tomlkit
 
 
-def check_paths(paths_dict: dict) -> None:
+def check_paths(paths_dict: dict) -> dict:
+    new_dict = {}
     for key, path_name in paths_dict.items():
         path = Path(path_name)
         if path.is_file() and not path.exists():
             raise FileNotFoundError(f"{key} path not found: {path_name}")
         elif path.is_dir():
             path.mkdir(parents=True, exist_ok=True)
+        new_dict[key] = path
+    return new_dict
 
 
 @validate_call
@@ -77,8 +80,9 @@ def parse_self_referencing_toml(toml_string):
 
 @validate_call
 def load_config(config_path: FilePath) -> dict:
-    config: dict = read_toml(config_path)
-    check_paths(config["paths"])
+    config = read_toml(config_path)
+    config = dict(config)
+    config["paths"] = check_paths(config["paths"])
     return config
 
 

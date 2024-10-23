@@ -37,16 +37,17 @@ class Map(Transformation):
 
 
 class StandardScaler(Transformation):
-    def __init__(self, axis=0, keepdims=True):
+
+    def __init__(self, dim=0, keepdims=True):
         super().__init__()
         self.means = None
         self.stds = None
-        self.axis = axis
+        self.dim = dim
         self.keepdims = keepdims
 
     def fit(self, train):
-        self.means = train.mean(axis=self.axis, keepdims=self.keepdims)
-        self.stds = train.std(axis=self.axis, keepdims=self.keepdims)
+        self.means = train.mean(dim=self.dim, keepdims=self.keepdims)
+        self.stds = train.std(dim=self.dim, keepdims=self.keepdims)
         self.stds[self.stds == 0] = 1
 
     def transform(self, data):
@@ -62,20 +63,23 @@ class StandardScaler(Transformation):
 
 
 class MinMaxScaler(Transformation):
-    def __init__(self, axis=0, keepdims=True):
+
+    @validate_call
+    def __init__(self, dim: tuple | int, keepdims: bool = True):
         super().__init__()
         self.mins = None
         self.maxs = None
-        self.axis = axis
+        self.dim = dim
         self.keepdims = keepdims
 
     def fit(self, train):
-        self.mins = torch.min(train, dim=self.axis, keepdim=self.keepdims).values
-        self.maxs = torch.max(train, dim=self.axis, keepdim=self.keepdims).values
+        self.mins = torch.amin(train, dim=self.dim, keepdim=self.keepdims)
+        self.maxs = torch.amax(train, dim=self.dim, keepdim=self.keepdims)
         min_eq_max = torch.where(torch.eq(self.mins, self.maxs))
         self.maxs[min_eq_max] = 1
 
-    def transform(self, data):
+    @validate_call(config={"arbitrary_types_allowed": True})
+    def transform(self, data: torch.Tensor):
         if self.mins is None or self.maxs is None:
             raise RuntimeError("Scaler has not been fitted.")
         return (data - self.mins) / (self.maxs - self.mins)

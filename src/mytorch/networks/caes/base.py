@@ -2,45 +2,45 @@ import torch
 from lightning import LightningModule
 
 from mytorch.metrics import normalized_rmse
+from mytorch.networks.blocks import OptimizerSchedulerNetwork
 
 
-class CAE(LightningModule):
+class CAE(OptimizerSchedulerNetwork):
 
-    def __init__(self, encoder, decoder):
-        super(CAE, self).__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def encode(self, x):
-        return self.encoder(x)
+        raise NotImplementedError
 
     def decode(self, x):
-        return self.decoder(x)
+        raise NotImplementedError
+
+    def forward(self, x, full=True):
+        encoding = self.encode(x)
+        if full:
+            return self.decode(encoding)
+        return encoding
 
     def training_step(self, batch, batch_idx):
         x = batch[0]
         x_hat = self.forward(x)
         loss = self.training_loss(x_hat, x)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.train_loss = loss
         return loss
 
     def validation_step(self, batch, batch_idx):
         x = batch[0]
         x_hat = self.forward(x)
         loss = self.training_loss(x_hat, x)
-        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.val_loss = loss
         return loss
 
     def test_step(self, batch, batch_idx):
         x = batch[0]
         x_hat = self.forward(x)
         loss = self.test_loss(x_hat, x)
-        self.log("test_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.test_loss = loss
         return loss
 
     def predict_step(self, batch, batch_idx):
@@ -48,13 +48,6 @@ class CAE(LightningModule):
         encoding = self.encode(x)
         predictions = self.decode(encoding)
         return predictions, encoding
-
-    def configure_optimizers(self):
-        return torch.optim.RAdam(self.parameters(), lr=self.hparams.lr)
-
-    def on_validation_epoch_end(self) -> None:
-        lr = self.trainer.optimizers[0].param_groups[0]["lr"]
-        self.log("lr", lr, on_step=False, on_epoch=True, prog_bar=True)
 
     @staticmethod
     def training_loss(x_hat, x):
