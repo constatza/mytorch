@@ -184,3 +184,9 @@ mlflow/
 /.idea
 *.xml
 
+*.ckpt
+*.png
+*logs
+
+*.npy
+/studies/bio-surrogate/model/lightning_logs
