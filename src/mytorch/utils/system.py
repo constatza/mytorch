@@ -42,18 +42,14 @@ def import_dynamically(module_path: str, prepend: str = ""):
         return module
 
 
-def filter_kwargs(cls, kwargs: dict):
+def filter_kwargs(kwargs: dict):
     """
     Filter keyword arguments to only include valid parameters for a class constructor
     and return a new instance of the class with the filtered keyword arguments.
-    :param cls: Class whose constructor parameters are used for filtering
-    :param kwargs: Keyword arguments to filter
-    :return: dict: Filtered keyword arguments
     """
-    sig = inspect.signature(cls.__init__)
-    # Get valid argument names (excluding 'self')
-    valid_params = set(sig.parameters) - {"self"}
+    # sig = inspect.signature(cls.__init__)
+    # # Get valid argument names (excluding 'self')
+    # valid_params = set(sig.parameters) - {"self"}
 
     # Filter kwargs to only include valid parameters
-    filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_params}
-    return cls(**filtered_kwargs)
+    return {k: v for k, v in kwargs.items() if k != "name"}
