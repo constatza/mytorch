@@ -1,5 +1,5 @@
 [mlflow]
-experiment_name = "test"
+experiment_name = "new test"
 run_name = "basic cae"
 log_models = false # !! true only for late-stage optimization with few trials!!
 

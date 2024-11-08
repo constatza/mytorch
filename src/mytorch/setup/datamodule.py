@@ -1,6 +1,6 @@
 import importlib
 from pathlib import Path
-from mytorch.utils.system import import_dynamically
+from mytorch.utils.system_utils import import_dynamically
 from mytorch.setup.transforms import initialize_transforms
 from mytorch.pipeline import Pipeline
 

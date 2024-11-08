@@ -1,6 +1,6 @@
 import torch.nn as nn
-from mytorch.utils.system import import_dynamically
-from mytorch.utils.system import filter_kwargs
+from mytorch.utils.system_utils import import_dynamically
+from mytorch.utils.system_utils import filter_kwargs
 
 
 def initialize_model(config: dict, shapes: dict) -> nn.Module:

@@ -1,4 +1,4 @@
-from mytorch.utils.system import import_dynamically, filter_kwargs
+from mytorch.utils.system_utils import import_dynamically, filter_kwargs
 from mytorch.pipeline import Pipeline
 
 
