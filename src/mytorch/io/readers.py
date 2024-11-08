@@ -1,11 +1,8 @@
-from collections import namedtuple
-from typing import Dict, Any, List
-
+from typing import Dict, Any
 import numpy as np
 import torch
 from pydantic import validate_call, FilePath
-from pathlib import Path
-
+from pathlib import Path, PurePath
 import re
 import tomlkit
 
@@ -13,25 +10,24 @@ import tomlkit
 def check_paths(paths_dict: dict) -> dict:
     new_dict = {}
     for key, path_name in paths_dict.items():
-        path = Path(path_name)
-        if path.is_file() and not path.exists():
-            raise FileNotFoundError(f"{key} path not found: {path_name}")
-        elif path.is_dir():
-            path.mkdir(parents=True, exist_ok=True)
+        if path_name.startswith("sqlite") or path_name.startswith("postgresql"):
+            path = str(path_name)
+        else:
+            path = Path(path_name)
         new_dict[key] = path
     return new_dict
 
 
 @validate_call
 def read_toml(config_path: FilePath) -> Dict:
-    """Reads a toml configuration file."""
+    """Reads a TOML configuration file."""
     with open(config_path, "r") as file:
         content = file.read()
     parsed = parse_self_referencing_toml(content)
     return parsed
 
 
-def parse_self_referencing_toml(toml_string):
+def parse_self_referencing_toml(toml_string: str) -> Dict:
     """
     Parses a TOML string and resolves self-references in the format {table.key}.
 
@@ -45,37 +41,55 @@ def parse_self_referencing_toml(toml_string):
     resolving = set()  # To track and prevent circular references
     pattern = re.compile(r"\{(.+?)\}")  # Regex pattern to find {table.key}
 
-    def resolve(value):
+    def resolve(value, full_data):
         """Recursively resolve a single value (either string or other data types)."""
         if isinstance(value, str):
             matches = pattern.findall(value)
             for match in matches:
-                table, key = match.split(".")
-                # Recursive resolution of reference
-                if table in data and key in data[table]:
-                    if (table, key) in resolving:
-                        raise ValueError(
-                            f"Circular reference detected in {table}.{key}"
-                        )
-                    # Track the resolving process to prevent circular references
-                    resolving.add((table, key))
-                    referenced_value = resolve(data[table][key])
-                    resolving.remove((table, key))
+                # Resolve hierarchical references, e.g., "table.subtable.key"
+                keys = match.split(".")
+                current = full_data
 
-                    # Replace placeholder with the actual resolved value
-                    value = value.replace(f"{{{match}}}", str(referenced_value))
+                try:
+                    # Traverse the nested dictionary
+                    for key in keys:
+                        current = current[key]
+                except KeyError:
+                    raise KeyError(f"Reference '{match}' not found in the TOML data.")
+
+                if isinstance(current, str) and pattern.search(current):
+                    # Resolve recursively if the referenced value itself has placeholders
+                    if tuple(keys) in resolving:
+                        raise ValueError(f"Circular reference detected in '{match}'.")
+                    resolving.add(tuple(keys))
+                    resolved_value = resolve(current, full_data)
+                    resolving.remove(tuple(keys))
+                else:
+                    resolved_value = current
+
+                # Replace placeholder with the actual resolved value
+                value = value.replace(f"{{{match}}}", str(resolved_value))
         return value
 
     def resolve_all():
         """Recursively resolve all references in the TOML data."""
-        for table, contents in data.items():
-            for key, value in contents.items():
-                data[table][key] = resolve(value)
 
-    # Resolve all self-references
-    resolve_all()
+        def traverse_and_resolve(data, full_data):
+            if isinstance(data, dict):
+                return {
+                    key: traverse_and_resolve(value, full_data)
+                    for key, value in data.items()
+                }
+            elif isinstance(data, list):
+                return [traverse_and_resolve(item, full_data) for item in data]
+            else:
+                return resolve(data, full_data)
 
-    return data
+        return traverse_and_resolve(data, data)
+
+    # Resolve all self-references in the TOML structure
+    resolved_data = resolve_all()
+    return resolved_data
 
 
 @validate_call

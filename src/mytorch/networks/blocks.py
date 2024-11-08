@@ -5,8 +5,18 @@ from mytorch.setup.scheduler import initialize_scheduler
 
 class OptimizerSchedulerNetwork(pl.LightningModule):
 
-    def __init__(self, optimizer_config=None, scheduler_config=None, *args, **kwargs):
+    def __init__(
+        self,
+        input_shape=None,
+        output_shape=None,
+        optimizer_config=None,
+        scheduler_config=None,
+        *args,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
+        self.input_shape = input_shape
+        self.output_shape = output_shape or input_shape
         self.optimizer_config = optimizer_config
         self.scheduler_config = scheduler_config
         self.val_loss = None
@@ -21,6 +31,7 @@ class OptimizerSchedulerNetwork(pl.LightningModule):
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "frequency": 1,
+                "monitor": "val_loss",
             },
         }
 
@@ -33,3 +44,8 @@ class OptimizerSchedulerNetwork(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         self.log("val_loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
+
+    def on_test_epoch_end(self) -> None:
+        self.log(
+            "test_loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True
+        )

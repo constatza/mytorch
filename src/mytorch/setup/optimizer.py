@@ -1,9 +1,12 @@
 import torch.optim as optim
 
+from mytorch.utils.system import import_dynamically, filter_kwargs
 
-def initialize_optimizer(config, model):
 
-    optimizer_name = config.pop("name", "Adam")
-    optimizer_class = getattr(optim, optimizer_name, optim.Adam)
-    optimizer = optimizer_class(model.parameters(), **config)
+def initialize_optimizer(config, parameters):
+
+    optimizer_name = config.get("name", "Adam")
+    optimizer_class = import_dynamically(optimizer_name, prepend="torch.optim")
+    config["params"] = parameters
+    optimizer = optimizer_class(**filter_kwargs(config))
     return optimizer

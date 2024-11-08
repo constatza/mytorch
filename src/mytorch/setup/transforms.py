@@ -21,4 +21,4 @@ def initialize_transforms(transforms_config):
 def initialize(d: dict):
     name = d.get("name")
     transform_class = import_dynamically(name, prepend="mytorch.transforms")
-    return filter_kwargs(transform_class, d)
+    return transform_class(**filter_kwargs(d))

@@ -1,4 +1,7 @@
 # utils/suggestion.py
+from mytorch.io.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def suggest(trial, config, prefix=""):
@@ -32,15 +35,13 @@ def suggest(trial, config, prefix=""):
                         raise ValueError(
                             f"Unsupported type '{param_type}' for range suggestion."
                         )
-                elif "choices" in value:
-                    choices = value["choices"]
+                elif "choice" in value:
+                    choices = value["choice"]
                     suggested_values[table_name][key] = trial.suggest_categorical(
                         suggestion_name, choices
                     )
                 else:
-                    raise ValueError(
-                        f"Invalid hyperparameter specification for '{key}'."
-                    )
+                    logger.warning(f"Parameter '{key}' is not recognized.")
             else:
                 suggested_values[table_name][key] = value
     return suggested_values

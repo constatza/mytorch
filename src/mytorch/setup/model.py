@@ -10,8 +10,8 @@ def initialize_model(config: dict, shapes: dict) -> nn.Module:
     that need to be passed to the model's constructor.
 
     Args:
-        trial (optuna.Trial): The Optuna trial object.
         model_config (dict): The configuration object for the model.
+        shapes (dict): A dictionary containing the shapes of the features and targets.
 
     Returns:
         nn.Module: The instantiated model object.
@@ -20,14 +20,13 @@ def initialize_model(config: dict, shapes: dict) -> nn.Module:
     model_class = import_dynamically(
         model_config.get("name"), prepend="mytorch.networks"
     )
-    model_config = {
-        **model_config,
-        **shapes,
-        "input_shape": shapes["features"],
-        "output_shape": shapes["targets"],
-        "optimizer_config": config["optimizer"],
-        "scheduler_config": config["scheduler"],
-    }
-    model = filter_kwargs(model_class, model_config)
-
+    model_config.update(
+        {
+            "input_shape": shapes["features"],
+            "output_shape": shapes.get("targets", None),
+            "optimizer_config": config["optimizer"],
+            "scheduler_config": config["scheduler"],
+        }
+    )
+    model = model_class(**filter_kwargs(model_config))
     return model

@@ -2,8 +2,6 @@ from typing import List
 
 import numpy as np
 import torch
-from lightning import LightningModule
-from pydantic import validate_call
 from torch import nn
 
 from mytorch.mytypes import TupleLike
@@ -179,20 +177,20 @@ class BasicCAE(CAE):
         x = self.decoder(x)
         return x
 
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode="min",
-            factor=0.6,
-            patience=10,
-            min_lr=1e-5,
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "monitor": "val_loss",
-                "frequency": 1,
-            },
-        }
+    # def configure_optimizers(self):
+    #     optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+    #     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    #         optimizer,
+    #         mode="min",
+    #         factor=0.6,
+    #         patience=10,
+    #         min_lr=1e-5,
+    #     )
+    #     return {
+    #         "optimizer": optimizer,
+    #         "lr_scheduler": {
+    #             "scheduler": scheduler,
+    #             "monitor": "val_loss",
+    #             "frequency": 1,
+    #         },
+    #     }

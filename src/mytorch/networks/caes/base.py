@@ -1,5 +1,4 @@
 import torch
-from lightning import LightningModule
 
 from mytorch.metrics import normalized_rmse
 from mytorch.networks.blocks import OptimizerSchedulerNetwork
@@ -25,21 +24,21 @@ class CAE(OptimizerSchedulerNetwork):
     def training_step(self, batch, batch_idx):
         x = batch[0]
         x_hat = self.forward(x)
-        loss = self.training_loss(x_hat, x)
+        loss = self.training_loss_func(x_hat, x)
         self.train_loss = loss
         return loss
 
     def validation_step(self, batch, batch_idx):
         x = batch[0]
         x_hat = self.forward(x)
-        loss = self.training_loss(x_hat, x)
+        loss = self.training_loss_func(x_hat, x)
         self.val_loss = loss
         return loss
 
     def test_step(self, batch, batch_idx):
         x = batch[0]
         x_hat = self.forward(x)
-        loss = self.test_loss(x_hat, x)
+        loss = self.test_loss_func(x_hat, x)
         self.test_loss = loss
         return loss
 
@@ -50,9 +49,9 @@ class CAE(OptimizerSchedulerNetwork):
         return predictions, encoding
 
     @staticmethod
-    def training_loss(x_hat, x):
+    def training_loss_func(x_hat, x):
         return torch.nn.functional.huber_loss(x_hat, x)
 
     @staticmethod
-    def test_loss(x_hat, x):
+    def test_loss_func(x_hat, x):
         return normalized_rmse(x_hat, x)

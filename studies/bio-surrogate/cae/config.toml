@@ -1,42 +1,44 @@
 [mlflow]
-experiment_name = "cae"
-log_models = true
+experiment_name = "test"
+run_name = "basic cae"
+log_models = false # !! true only for late-stage optimization with few trials!!
+
+[mlflow.server]
+# Backend store URI (SQLite database in this example)
+# Host and port for the MLflow server
+host = "localhost"
+port = 5000
 
 [optuna]
-n_trials = 3
+n_trials = 2
 direction = "minimize"
 
-[train]
-batch_size = 64
-epochs = 10
+[trainer]
+max_epochs = 2
+enable_checkpointing = false
+logger = false
+
+[model]
+name = "caes.cae1d.BasicCAE"
+latent_size = 9
+num_layers =  { choice = [1, 2]}
+kernel_size = { choice = [3, 5, 7]}
+reduced_channels = { low = 10, high = 200, type = "int" }
+reduced_timesteps =  {low = 200, high = 600, type = "int" }
 
 [optimizer]
 name = "Adam"
-lr = {type = "float", low = 0.0001, high = 0.01, step = 0.0001}  # Range
+lr = 0.001  # Range
 
 [scheduler]
-name = "StepLR"
-interval = "epoch"
+name = "ReduceLROnPlateau"
+factor = 0.6
+patience = 10
 
 [pruner]
 name = "MedianPruner"
 n_startup_trials = 10
 interval_steps = 10
-
-[trainer]
-experiment_name = "my_experiment"
-max_epochs = 10
-gpu = "auto"
-
-
-# Model-specific hyperparameters (defines the structure of the neural network)
-[model]
-name = "caes.cae1d.BasicCAE"
-latent_size = { low = 3, high = 10, type = "int" }
-num_layers = { low = 1, high = 2, type = "int" }
-kernel_size = 3
-reduced_channels = 10
-reduced_timesteps =  {low = 1, high = 600, type = "int" }
 
 [transforms]
 features = [
@@ -55,18 +57,16 @@ batch_size = 64
 
 [paths]
 dataroot = "M:/constantinos/data/bio/5-equations/"
-workdir = "C:/Users/cluster/constantinos/mytorch/studies/bio-surrogate/{mlflow.run_name}"
 features = "{paths.input}/solutions.npy"
 input = "{paths.dataroot}/input/"
 output = "{paths.dataroot}/output/"
 figures = "{paths.output}/figures/"
-checkpoints = "{paths.output}/checkpoints/"
-logs = "{paths.output}/logs/"
 latent = "{paths.output}/latent.npy"
-#targets = "{paths.input}/volumes.csv"
 predictions = "{paths.output}/predictions.npy"
 parameters = "{paths.input}/parameters.npy"
-tracking_uri = "file:///{paths.dataroot}/mlruns/"
+tracking_uri = "{paths.backend_store_uri}"
+backend_store_uri = "sqlite:///M:/constantinos/data/bio/5-equations/mlruns/mlflow.db"
+
 
 
 
