@@ -1,6 +1,6 @@
 import torch.optim as optim
 
-from mytorch.utils.system import import_dynamically, filter_kwargs
+from mytorch.utils.system_utils import import_dynamically, filter_kwargs
 
 
 def initialize_optimizer(config, parameters):

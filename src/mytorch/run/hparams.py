@@ -14,7 +14,7 @@ from mytorch.setup.pruner import initialize_pruner
 from mytorch.io.logging import get_logger
 from mytorch.setup.tracking import initialize_mlflow
 from mytorch.setup.datamodule import initialize_datamodule
-from mytorch.utils.system import import_dynamically
+from mytorch.utils.system_utils import import_dynamically
 from mytorch.io.writers import write_toml
 
 

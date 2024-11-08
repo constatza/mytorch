@@ -1,4 +1,4 @@
-from mytorch.utils.system import import_dynamically
+from mytorch.utils.system_utils import import_dynamically
 
 
 def initialize_pruner(pruner_config):

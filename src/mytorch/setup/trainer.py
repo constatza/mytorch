@@ -1,5 +1,5 @@
 from lightning import Trainer
-from mytorch.utils.system import filter_kwargs
+from mytorch.utils.system_utils import filter_kwargs
 from pathlib import Path
 
 
