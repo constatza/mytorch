@@ -110,4 +110,4 @@ def setup_signal_handlers(process):
     signal.signal(signal.SIGTERM, cleanup)  # Handle termination signals
 
     # Ensure cleanup on program exit
-    atexit.register(cleanup)
+    atexit.register(cleanup, signum=signal.SIGTERM, frame=None)
