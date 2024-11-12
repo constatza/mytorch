@@ -160,7 +160,7 @@ cython_debug/
 .idea/
 *.xml
 
-# data
+# raw
 *data
 *data/*
 input/
@@ -170,6 +170,7 @@ processed/
 interim/
 external/
 temp/
+mlflow/
 *.zip
 *.tar
 *.gz
@@ -182,3 +183,10 @@ temp/
 *.dbf
 /.idea
 *.xml
+
+*.ckpt
+*.png
+*logs
+
+*.npy
+/studies/bio-surrogate/model/lightning_logs

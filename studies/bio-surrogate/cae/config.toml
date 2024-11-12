@@ -1,0 +1,73 @@
+[mlflow]
+experiment_name = "new test"
+run_name = "basic cae"
+log_models = false # !! true only for late-stage optimization with few trials!!
+
+[mlflow.server]
+# Backend store URI (SQLite database in this example)
+# Host and port for the MLflow server
+host = "localhost"
+port = 5000
+
+[optuna]
+n_trials = 200
+direction = "minimize"
+
+[trainer]
+max_epochs = 400
+enable_checkpointing = false
+logger = false
+
+[model]
+name = "caes.cae1d.BasicCAE"
+latent_size = 9
+num_layers =  { choice = [2, 3, 4]}
+kernel_size = { choice = [3, 5, 7]}
+reduced_channels = { low = 50, high = 500, type = "int" }
+reduced_timesteps =  {low = 200, high = 738, type = "int" }
+
+[optimizer]
+name = "RAdam"
+lr = 0.001  # Range
+
+[scheduler]
+name = "ReduceLROnPlateau"
+factor = 0.6
+patience = 10
+
+[pruner]
+name = "MedianPruner"
+n_startup_trials = 10
+interval_steps = 10
+
+[transforms]
+features = [
+    {name = "NumpyToTensor"},
+    {name = "StandardScaler", dim = [0, -1]}
+]
+
+# Sampler configuration for hyperparameter search
+[sampler]
+name = "TPESampler"  # Example of using a sampler
+
+[datamodule]
+name = "FileDataModule"
+test_size = 0.3
+batch_size = 64
+
+[paths]
+dataroot = "M:/constantinos/data/bio/5-equations/"
+features = "{paths.input}/solutions.npy"
+input = "{paths.dataroot}/input/"
+output = "{paths.dataroot}/output/"
+figures = "{paths.output}/figures/"
+latent = "{paths.output}/latent.npy"
+predictions = "{paths.output}/predictions.npy"
+parameters = "{paths.input}/parameters.npy"
+tracking_uri = "{paths.backend_store_uri}"
+backend_store_uri = "sqlite:///M:/constantinos/data/bio/5-equations/mlruns/mlflow.db"
+
+
+
+
+

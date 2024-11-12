@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "mytorch"
+version = "0.1.0"
+description = "custom modules and networks for pytorch"
+authors = ["constatza <29166969+constatza@users.noreply.github.com>"]
+readme = "README.md"
+packages = [
+    { include = "mytorch", from = "./src" },
+]
+
+
+[[tool.poetry.source]]
+name = "pytorch_gpu"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry.dependencies]
+python = "^3.12"
+numpy = "^1"
+pathlib = "^1.0.1"
+
+
+
+tomlkit = "^0.12.5"
+pydantic = "^2.7.4"
+torch = {version = "^2.3.1+cu118", source = "pytorch_gpu"}
+plotly = "^5.22.0"
+pandas = "^2.2.2"
+lightning = "^2.3.2"
+rich = "^13.7.1"
+matplotlib = "^3.9.1"
+scikit-learn = "^1.5.1"
+torchvision = {version = "^0.18.1+cu118", source = "pytorch_gpu"}
+polars = "^1.4.1"
+tensorboard = "^2.17.1"
+mlflow = "^2.17.0"
+optuna = "^3"
+psutil = "^6.1.0"
+[tool.poetry.group.test.dependencies]
+pytest = "^8.2.2"
+
+
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+pythonpath = [
+    "src",
+]
+
+[tool.poetry.scripts]
+start-server = "mytorch.scripts.start_mlflow_server:main"
+hopt = "mytorch.scripts.hparams_optimization:main"
+

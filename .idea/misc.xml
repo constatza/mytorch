@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Black">
-    <option name="sdkName" value="Python 3.10 (bio)" />
+    <option name="enabledOnReformat" value="true" />
+    <option name="enabledOnSave" value="true" />
+    <option name="executionMode" value="BINARY" />
+    <option name="pathToExecutable" value="C:\Users\cluster\pipx\venvs\black\Scripts\black.exe" />
+    <option name="sdkName" value="Poetry (mytorch)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.9 (mytorch)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Poetry (mytorch)" project-jdk-type="Python SDK" />
 </project>
