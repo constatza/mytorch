@@ -10,24 +10,24 @@ host = "localhost"
 port = 5000
 
 [optuna]
-n_trials = 2
+n_trials = 200
 direction = "minimize"
 
 [trainer]
-max_epochs = 2
+max_epochs = 400
 enable_checkpointing = false
 logger = false
 
 [model]
 name = "caes.cae1d.BasicCAE"
 latent_size = 9
-num_layers =  { choice = [1, 2]}
+num_layers =  { choice = [2, 3, 4]}
 kernel_size = { choice = [3, 5, 7]}
-reduced_channels = { low = 10, high = 200, type = "int" }
-reduced_timesteps =  {low = 200, high = 600, type = "int" }
+reduced_channels = { low = 50, high = 500, type = "int" }
+reduced_timesteps =  {low = 200, high = 738, type = "int" }
 
 [optimizer]
-name = "Adam"
+name = "RAdam"
 lr = 0.001  # Range
 
 [scheduler]
