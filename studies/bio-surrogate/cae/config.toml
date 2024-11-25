@@ -1,6 +1,6 @@
 [mlflow]
-experiment_name = "new test"
-run_name = "basic cae"
+experiment_name = "residual cae"
+run_name = "batch-norm"
 log_models = false # !! true only for late-stage optimization with few trials!!
 
 [mlflow.server]
@@ -20,11 +20,11 @@ logger = false
 
 [model]
 name = "caes.cae1d.BasicCAE"
-latent_size = 9
-num_layers =  { choice = [2, 3, 4]}
-kernel_size = { choice = [3, 5, 7]}
-reduced_channels = { low = 50, high = 500, type = "int" }
-reduced_timesteps =  {low = 200, high = 738, type = "int" }
+latent_size = {low = 3, high = 15, type = "int"}
+kernel_size = {low = 3, high = 11, type = "int", step = 2}
+num_layers = {low = 1, high = 6, type = "int"}
+reduced_channels = { low = 200, high = 600, type = "int" }
+reduced_timesteps =  {low = 200, high = 600, type = "int" }
 
 [optimizer]
 name = "RAdam"
@@ -43,7 +43,7 @@ interval_steps = 10
 [transforms]
 features = [
     {name = "NumpyToTensor"},
-    {name = "StandardScaler", dim = [0, -1]}
+    {name = "MinMaxScaler", dim = [0, -1]}
 ]
 
 # Sampler configuration for hyperparameter search
@@ -54,6 +54,10 @@ name = "TPESampler"  # Example of using a sampler
 name = "FileDataModule"
 test_size = 0.3
 batch_size = 64
+
+[dataloader]
+num_workers = 1
+persistent_workers = true
 
 [paths]
 dataroot = "M:/constantinos/data/bio/5-equations/"

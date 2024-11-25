@@ -68,5 +68,7 @@ def optimize(config_path: FilePath):
             config["model"].get("name"), prepend="mytorch.networks"
         )
         best_run_id = study.best_trial.user_attrs.get("mlflow_run_id")
-        config["mlflow"].update({"best_run_id": best_run_id})
+        config["mlflow"].update(
+            {"best_run_id": best_run_id, "run_name": f"best-{best_run_id}"}
+        )
         write_toml(config, config_path.with_name("best_config.toml"))

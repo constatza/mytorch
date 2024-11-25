@@ -47,6 +47,7 @@ class FileDataModule(LightningDataModule):
         val_size: float = 0.5,  # percentage of the test dataset
         batch_size: int = 64,
         indices_path: Optional[FilePath] = None,
+        dataloader_config: Optional[dict] = None,
     ):
 
         super().__init__()
@@ -94,6 +95,7 @@ class FileDataModule(LightningDataModule):
         self.target_preprocessors = target_preprocessors
 
         self.is_prepared = False
+        self.dataloader_config = dataloader_config
 
     def local_path_to(self, filename: str, suffix: str = ".npy") -> Path:
         return (self.save_dir / filename).with_suffix(suffix)
@@ -218,17 +220,35 @@ class FileDataModule(LightningDataModule):
             self.predict_dataset = TensorDataset(features, targets)
 
     def train_dataloader(self) -> DataLoader:
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            **self.dataloader_config,
+        )
 
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False)
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            **self.dataloader_config,
+        )
 
     def test_dataloader(self) -> DataLoader:
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            **self.dataloader_config,
+        )
 
     def predict_dataloader(self) -> DataLoader:
         return DataLoader(
-            self.predict_dataset, batch_size=len(self.predict_dataset), shuffle=False
+            self.predict_dataset,
+            batch_size=len(self.predict_dataset),
+            shuffle=False,
+            **self.dataloader_config,
         )
 
 

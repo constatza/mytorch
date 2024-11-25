@@ -114,7 +114,7 @@ class BasicCAE(CAE):
         num_layers: int = 4,
         kernel_size: int = 5,
         lr: float = 1e-3,
-        activation: nn.functional = nn.functional.gelu,
+        activation: nn.Module = nn.GELU(),
         *args,
         **kwargs
     ):
@@ -155,6 +155,7 @@ class BasicCAE(CAE):
             kernel_size=kernel_size,
             timesteps=timesteps,
             output_shape=input_shape,
+            activation=activation,
         )
 
     def encode(self, x):
@@ -169,59 +170,6 @@ class BasicCAE(CAE):
 import torch
 from torch import nn
 from typing import List, Optional
-
-
-class ResidualConvBlock(nn.Module):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int = 3,
-        downsample_timesteps: Optional[int] = None,
-        activation: nn.Module = nn.GELU(),
-    ):
-        """
-        A residual convolutional block with one downsampling layer.
-
-        Parameters:
-        - in_channels (int): Number of input channels.
-        - out_channels (int): Number of output channels.
-        - kernel_size (int): Kernel size for convolutions.
-        - downsample_timesteps (Optional[int]): Target timesteps for adaptive pooling, None if not downsampling.
-        - activation (nn.Module): Activation function to use.
-        """
-        super().__init__()
-        self.conv1 = nn.Conv1d(
-            in_channels, out_channels, kernel_size=kernel_size, stride=1, padding="same"
-        )
-        self.activation = activation
-        self.downsample = (
-            nn.AdaptiveMaxPool1d(downsample_timesteps)
-            if downsample_timesteps
-            else nn.Identity()
-        )
-
-        # Residual projection if in_channels != out_channels or if downsampling alters timesteps
-        self.residual_projection = (
-            nn.Conv1d(in_channels, out_channels, kernel_size=1)
-            if in_channels != out_channels
-            else nn.Identity()
-        )
-
-    def forward(self, x):
-        # Residual path
-        residual = self.residual_projection(x)
-
-        # Main path: convolution + activation + optional downsampling
-        x = self.activation(self.conv1(x))
-        x = self.downsample(x)
-
-        # Ensure the residual connection matches the spatial dimensions
-        residual = nn.functional.adaptive_max_pool1d(
-            residual, x.shape[-1]
-        )  # Match time dimension if needed
-
-        return x + residual  # Residual connection
 
 
 class FeatureExtractor(nn.Module):
@@ -257,8 +205,8 @@ class FeatureExtractor(nn.Module):
                 ResidualConvBlock(
                     in_channels=channels[i],
                     out_channels=channels[i + 1],
+                    out_timesteps=downsample_timesteps,
                     kernel_size=kernel_size,
-                    downsample_timesteps=downsample_timesteps,
                     activation=activation,
                 )
             )
@@ -326,16 +274,16 @@ class Encoder(nn.Module):
         return x
 
 
-class ResidualConvTransposeBlock(nn.Module):
+class ResidualConvBlock(nn.Module):
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
+        out_timesteps: int,
         kernel_size: int = 3,
-        stride: int = 2,
-        padding: int = 1,
-        upsample_timesteps: Optional[int] = None,
         activation: nn.Module = nn.GELU(),
+        is_decoder: bool = False,
+        batch_norm: bool = True,
     ):
         """
         A residual transposed convolutional block with upsampling.
@@ -350,33 +298,35 @@ class ResidualConvTransposeBlock(nn.Module):
         - activation (nn.Module): Activation function to use.
         """
         super().__init__()
-        self.conv1 = nn.ConvTranspose1d(
+        self.conv1 = nn.Conv1d(
             in_channels,
             out_channels,
             kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-            output_padding=stride - 1,
+            padding="same",
         )
         self.activation = activation
-        self.upsample = (
-            nn.AdaptiveAvgPool1d(upsample_timesteps)
-            if upsample_timesteps
-            else nn.Identity()
-        )
+        if is_decoder:
+            self.reshape_timesteps = nn.Upsample(
+                size=out_timesteps, mode="linear", align_corners=False
+            )
+        else:
+            self.reshape_timesteps = nn.AdaptiveAvgPool1d(out_timesteps)
 
         # Residual projection to match dimensions
         self.residual_projection = (
-            nn.ConvTranspose1d(in_channels, out_channels, kernel_size=1)
+            nn.Conv1d(in_channels, out_channels, kernel_size=1)
             if in_channels != out_channels
             else nn.Identity()
         )
 
+        self.batch_norm = nn.BatchNorm1d(out_channels) if batch_norm else nn.Identity()
+
     def forward(self, x):
+        x = self.reshape_timesteps(x)
         residual = self.residual_projection(x)
-        x = self.activation(self.conv1(x))
-        x = self.upsample(x)
-        residual = nn.functional.adaptive_avg_pool1d(residual, x.shape[-1])
+        x = self.conv1(x)
+        x = self.batch_norm(x)
+        x = self.activation(x)
         return x + residual
 
 
@@ -423,18 +373,17 @@ class FeatureDecoder(nn.Module):
         num_layers = len(channels) - 1
 
         for i in range(num_layers):
-            upsample_timesteps = (
+            out_timesteps = (
                 timesteps[i + 1] if timesteps and i < len(timesteps) - 1 else None
             )
             layers.append(
-                ResidualConvTransposeBlock(
+                ResidualConvBlock(
                     in_channels=channels[i],
                     out_channels=channels[i + 1],
+                    out_timesteps=out_timesteps,
                     kernel_size=kernel_size,
-                    stride=2,
-                    padding=1,
-                    upsample_timesteps=upsample_timesteps,
                     activation=activation,
+                    is_decoder=True,
                 )
             )
 

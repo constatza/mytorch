@@ -22,8 +22,6 @@ def objective(trial, config, dataset_module):
         trainer.fit(model, datamodule=dataset_module)
         val_loss = trainer.callback_metrics.get("val_loss")
         trainer.test(model, datamodule=dataset_module)
-        # test_loss = trainer.callback_metrics.get("test_loss")
-        # mlflow.log_metric("test_loss", test_loss)
 
         if val_loss is not None:
             trial.report(val_loss.item(), step=trainer.current_epoch)

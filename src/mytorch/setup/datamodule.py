@@ -39,7 +39,8 @@ def initialize_datamodule(config):
         features_path=features_path,
         targets_path=targets_path,
         features_pipeline=features_pipeline,
-        targets_pipeline=targets_pipeline
+        targets_pipeline=targets_pipeline,
+        dataloader_config=config.get("dataloader"),
     )
 
     return datamodule_instance

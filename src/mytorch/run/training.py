@@ -1,12 +1,17 @@
 # training.py
 
-import pytorch_lightning as pl
+from lightning.pytorch import seed_everything
 import mlflow
 import mlflow.pytorch
-from models.model import LitModel  # Assuming your model is defined in models/model.py
-from data.data_module import (
-    DataModule,
-)  # Assuming your data module is defined in data/data_module.py
+
+from mytorch.io.readers import load_config
+from mytorch.io.logging import get_logger
+from mytorch.setup.tracking import initialize_mlflow
+from mytorch.setup.datamodule import initialize_datamodule
+from mytorch.setup.trainer import initialize_trainer
+from mytorch.setup.model import initialize_model
+
+seed_everything(1)
 
 
 def main():
@@ -16,26 +21,20 @@ def main():
     )  # Set log_models=False to prevent automatic model logging
 
     # Initialize data module and model
-    data_module = DataModule()  # Replace with your actual data module initialization
-    model = LitModel()  # Replace with your actual model initialization
-
-    # Initialize trainer
-    trainer = pl.Trainer(max_epochs=5, logger=False)  # Disable default logger
+    config = load_config("config.toml")
+    data_module = initialize_datamodule(config)
+    experiment_id = initialize_mlflow(config)
+    trainer = initialize_trainer(config)
+    model = initialize_model(config, data_module.shapes)
 
     # Start MLflow run
     with mlflow.start_run() as run:
         # Log hyperparameters
+        mlflow.autolog(log_model_signatures=True, log_models=True)
         mlflow.log_params(model.hparams)
 
         # Train the model
         trainer.fit(model, datamodule=data_module)
-
-        # Manually save the model checkpoint
-        checkpoint_path = "model_checkpoint.ckpt"
-        trainer.save_checkpoint(checkpoint_path)
-
-        # Log the checkpoint as an artifact to MLflow
-        mlflow.log_artifact(checkpoint_path, artifact_path="model_checkpoint")
 
         # Optionally, log the entire model using mlflow.pytorch.log_model
         mlflow.pytorch.log_model(
