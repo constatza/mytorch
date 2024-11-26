@@ -60,10 +60,11 @@ You can install the package using either `uv` or `pip`.
 4. **Install Dependencies**:
 
    ```bash
-   pip install -r requirements.txt
+   pip install .
    ```
 
-   This command will install all the dependencies listed in the `requirements.txt` file.
+   This command will install all the dependencies listed in the `pyproject.toml` file.
+   Use the `-e` flag to install the package in editable mode.
 
 ## Running Scripts
 
