@@ -4,7 +4,7 @@ import torch
 from pydantic import validate_call, FilePath
 from pathlib import Path, PurePath
 import re
-import tomlkit
+import tomllib
 
 
 def check_paths(paths_dict: dict) -> dict:
@@ -37,7 +37,7 @@ def parse_self_referencing_toml(toml_string: str) -> Dict:
     Returns:
         dict: The resolved TOML data as a dictionary.
     """
-    data = tomlkit.parse(toml_string)
+    data = tomllib.loads(toml_string)
     resolving = set()  # To track and prevent circular references
     pattern = re.compile(r"\{(.+?)\}")  # Regex pattern to find {table.key}
 

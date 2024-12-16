@@ -1,4 +1,4 @@
-from mytorch.run.hparams import optimize
+from mytorch.scripts.hparams import optimize
 
 
 def main():

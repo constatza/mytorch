@@ -12,7 +12,7 @@ from mytorch.io.readers import load_config
 from mytorch.optimization import objective
 from mytorch.setup.pruner import initialize_pruner
 from mytorch.io.logging import get_logger
-from mytorch.setup.tracking import initialize_mlflow
+from mytorch.setup.tracking import initialize_mlflow_client
 from mytorch.setup.datamodule import initialize_datamodule
 from mytorch.utils.system_utils import import_dynamically
 from mytorch.io.writers import write_toml
@@ -37,7 +37,7 @@ def optimize(config_path: FilePath):
     n_trials = optuna_config["n_trials"]
 
     # setup mlflow experiment and tracking uri
-    experiment_id = initialize_mlflow(config)
+    experiment_id = initialize_mlflow_client(config)
 
     # Setup pruner
     pruner = initialize_pruner(config.get("pruner"))

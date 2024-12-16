@@ -5,6 +5,9 @@ import subprocess
 import sys
 import socket
 import atexit
+from typing import Optional
+from urllib3.util.url import parse_url
+from pathlib import Path
 
 
 from mytorch.io.logging import get_logger
@@ -65,49 +68,68 @@ def filter_kwargs(kwargs: dict):
     return {k: v for k, v in kwargs.items() if k != "name"}
 
 
-def terminate_process_tree(pid):
-    """
-    Terminates a process and its child processes.
-
-    Args:
-        pid (int): The PID of the parent process.
-    """
-    try:
-        if os.name == "posix":
-            os.killpg(os.getpgid(pid), signal.SIGTERM)  # Terminate process group
-            logger.info(f"Terminated process group for PID: {pid}")
-        elif os.name == "nt":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], check=True)
-            logger.info(f"Terminated process tree for PID: {pid}")
-    except Exception as e:
-        logger.error(f"Error terminating process tree for PID {pid}: {e}")
-
-
-def check_port_available(host, port):
+def check_port_available(host, port, terminate_apps_on_port=False):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(1)
         try:
             sock.bind((host, port))
         except socket.error:
-            logger.error(f"Port {port} is already in use.")
-            sys.exit(1)
+            logger.warn(f"Port {port} is already in use.")
+            if terminate_apps_on_port:
+                logger.warn("Terminating applications using the port.")
+                terminate_apps(port)
+                check_port_available(host, port, terminate_apps_on_port=False)
+            else:
+                logger.warn(
+                    "Please specify a different port or terminate the applications using the port."
+                )
+                sys.exit(1)
 
 
-def setup_signal_handlers(process):
+def terminate_apps(port):
+    if os.name == "nt":
+        # kill windows apps using port
+        subprocess.run(
+            f'for /f "tokens=5" %a in (\'netstat -aon ^| find "{port}"\') do taskkill /f /pid %a',
+            shell=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+    else:
+        subprocess.run(
+            f"kill -9 $(lsof -t -i:{port})", shell=True, stdout=subprocess.DEVNULL
+        )
+
+
+def cleanup(server_process):
+    """Terminate the MLflow server process group."""
+    if server_process.poll() is None:  # Server still running
+        if os.name != "nt":
+            # On Unix, kill the entire process group
+            os.killpg(server_process.pid, signal.SIGTERM)
+        else:
+            # On Windows, just terminate the process (created in new group)
+            server_process.terminate()
+
+
+def ensure_local_directory(uri: str) -> None:
     """
-    Sets up signal handlers to ensure graceful termination of the server process.
+    Ensures that the local directory for the given URI exists if the URI starts with `file:`.
 
     Args:
-        process (subprocess.Popen): The MLflow server process.
+        uri (str): A URI that might be local (file scheme).
     """
+    local_schemes = ["", "file"]
+    parsed_uri = parse_url(uri)
+    scheme = parsed_uri.scheme
+    path = parsed_uri.path
+    if path is None:
+        return
 
-    def cleanup(signum: int, frame):
-        logger.info("Terminating MLflow server...")
-        terminate_process_tree(process.pid)
-        sys.exit(0)
+    if os.name == "nt" and path.startswith("/"):
+        path = path.lstrip("/")
 
-    signal.signal(signal.SIGINT, cleanup)  # Handle Ctrl+C
-    signal.signal(signal.SIGTERM, cleanup)  # Handle termination signals
-
-    # Ensure cleanup on program exit
-    atexit.register(cleanup, signum=signal.SIGTERM, frame=None)
+    if scheme in local_schemes:
+        local_path = Path(path)
+        local_path.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Ensured local directory exists: {local_path}")

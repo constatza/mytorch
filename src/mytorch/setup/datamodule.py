@@ -1,6 +1,5 @@
-import importlib
 from pathlib import Path
-from mytorch.utils.system_utils import import_dynamically
+from mytorch.utils.system_utils import import_dynamically, filter_kwargs
 from mytorch.setup.transforms import initialize_transforms
 from mytorch.pipeline import Pipeline
 
@@ -18,7 +17,7 @@ def initialize_datamodule(config):
 
     # Include hyperparameter suggestions
     datamodule_class = import_dynamically(
-        datamodel_config.pop("name"), prepend="mytorch.datamodules"
+        datamodel_config.get("name"), prepend="mytorch.datamodules"
     )
 
     features_pipeline, targets_pipeline = initialize_transforms(transforms_config)
@@ -33,8 +32,10 @@ def initialize_datamodule(config):
 
     save_dir.mkdir(parents=True, exist_ok=True)
 
+    filtered_config = filter_kwargs(datamodel_config)
+
     datamodule_instance = datamodule_class(
-        **datamodel_config,
+        **filtered_config,
         save_dir=save_dir,
         features_path=features_path,
         targets_path=targets_path,

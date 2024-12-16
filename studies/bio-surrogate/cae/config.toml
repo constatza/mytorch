@@ -1,13 +1,15 @@
 [mlflow]
-experiment_name = "residual cae"
-run_name = "batch-norm"
-log_models = false # !! true only for late-stage optimization with few trials!!
+experiment_name = "test artifacts 1"
+run_name = "basic cae"
+log_models = false
 
 [mlflow.server]
-# Backend store URI (SQLite database in this example)
-# Host and port for the MLflow server
 host = "localhost"
 port = 5000
+backend_store_uri = "sqlite:///M:/constantinos/data/bio/5-equations/mlruns/mlflow.db"
+default_artifact_root = "file:///M:/constantinos/data/bio/5-equations/mlruns"
+tracking_uri = "https://{mlflow.server.host}:{mlflow.server.port}"
+
 
 [optuna]
 n_trials = 200
@@ -17,6 +19,7 @@ direction = "minimize"
 max_epochs = 400
 enable_checkpointing = false
 logger = false
+fast_dev_run = true
 
 [model]
 name = "caes.cae1d.BasicCAE"
@@ -29,11 +32,13 @@ reduced_timesteps =  {low = 200, high = 600, type = "int" }
 [optimizer]
 name = "RAdam"
 lr = 0.001  # Range
+min_lr = 1e-7
 
 [scheduler]
 name = "ReduceLROnPlateau"
 factor = 0.6
 patience = 10
+min_lr = 1e-7
 
 [pruner]
 name = "MedianPruner"
@@ -68,8 +73,6 @@ figures = "{paths.output}/figures/"
 latent = "{paths.output}/latent.npy"
 predictions = "{paths.output}/predictions.npy"
 parameters = "{paths.input}/parameters.npy"
-tracking_uri = "{paths.backend_store_uri}"
-backend_store_uri = "sqlite:///M:/constantinos/data/bio/5-equations/mlruns/mlflow.db"
 
 
 
