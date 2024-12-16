@@ -1,7 +1,7 @@
 # tests/test_networks/test_caes/test_fixtures.py
 import pytest
 import torch
-from src.mytorch.networks.caes.cbam import (
+from mytorch.networks.caes.cbam import (
     ChannelAttention1D,
     SpatialAttention1D,
     CBAM1D,

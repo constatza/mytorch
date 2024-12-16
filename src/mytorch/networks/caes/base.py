@@ -15,11 +15,9 @@ class CAE(OptimizerSchedulerNetwork):
     def decode(self, x):
         raise NotImplementedError
 
-    def forward(self, x, full=True):
+    def forward(self, x):
         encoding = self.encode(x)
-        if full:
-            return self.decode(encoding)
-        return encoding
+        return self.decode(encoding)
 
     def training_step(self, batch, batch_idx):
         x = batch[0]
@@ -54,4 +52,4 @@ class CAE(OptimizerSchedulerNetwork):
 
     @staticmethod
     def test_loss_func(x_hat, x):
-        return normalized_rmse(x_hat, x)
+        return CAE.training_loss_func(x_hat, x)

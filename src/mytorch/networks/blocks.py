@@ -1,20 +1,20 @@
-import lightning.pytorch as pl
+from lightning import LightningModule
 from mytorch.setup.optimizer import initialize_optimizer
 from mytorch.setup.scheduler import initialize_scheduler
 
 
-class OptimizerSchedulerNetwork(pl.LightningModule):
+class OptimizerSchedulerNetwork(LightningModule):
 
     def __init__(
         self,
-        input_shape=None,
-        output_shape=None,
-        optimizer_config=None,
-        scheduler_config=None,
+        input_shape: tuple | list = None,
+        output_shape: tuple | list = None,
+        optimizer_config: dict = None,
+        scheduler_config: dict = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__()
         self.input_shape = input_shape
         self.output_shape = output_shape or input_shape
         self.optimizer_config = optimizer_config

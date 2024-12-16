@@ -1,19 +1,20 @@
-from typing import List
-
 import numpy as np
 import torch
-from sympy import Identity
+from torch import nn
+from pydantic import validate_call, ConfigDict
+from mytorch.networks.caes.blocks import FeatureToLatent, LatentToFeature
 from torch import nn
 
 from mytorch.mytypes import TupleLike
 from mytorch.networks.caes.base import CAE
+from lightning import LightningModule
 
 
 def create_encoder(
-    channels: List[int],
+    channels: list[int],
     num_layers: int,
     kernel_size: int,
-    timesteps: List[int],
+    timesteps: list[int],
 ):
 
     encoder = nn.ModuleList()
@@ -60,10 +61,10 @@ def create_encoder(
 
 
 def create_decoder(
-    channels: List[int],
+    channels: list[int],
     num_layers: int,
     kernel_size: int,
-    timesteps: List[int],
+    timesteps: list[int],
     input_shape: TupleLike,
 ):
 
@@ -105,6 +106,7 @@ def create_decoder(
 
 class BasicCAE(CAE):
 
+    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
     def __init__(
         self,
         input_shape: tuple,
@@ -116,10 +118,19 @@ class BasicCAE(CAE):
         lr: float = 1e-3,
         activation: nn.Module = nn.GELU(),
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.save_hyperparameters(ignore="activation")
+        self.save_hyperparameters(
+            "input_shape",
+            "reduced_channels",
+            "reduced_timesteps",
+            "latent_size",
+            "num_layers",
+            "kernel_size",
+            "lr",
+        )
+
         self.activation = activation
         self.input_shape = input_shape
 
@@ -158,27 +169,33 @@ class BasicCAE(CAE):
             activation=activation,
         )
 
+        self.smoothing_layer = nn.Sequential(
+            nn.Conv1d(
+                input_shape[1], input_shape[1], kernel_size=kernel_size, padding="same"
+            ),
+            nn.SELU(),
+            nn.Conv1d(
+                input_shape[1], input_shape[1], kernel_size=kernel_size, padding="same"
+            ),
+        )
+
     def encode(self, x):
         x = self.encoder(x)
         return x
 
     def decode(self, x):
         x = self.decoder(x)
+        x = self.smoothing_layer(x)
         return x
 
 
-import torch
-from torch import nn
-from typing import List, Optional
-
-
-class FeatureExtractor(nn.Module):
+class FeatureExtractor(LightningModule):
     def __init__(
         self,
         input_shape: tuple,
-        channels: List[int],
+        channels: list[int],
+        timesteps: list[int],
         kernel_size: int = 3,
-        timesteps: List[int] = None,
         activation: nn.Module = nn.GELU(),
     ):
         """
@@ -192,15 +209,14 @@ class FeatureExtractor(nn.Module):
         - activation (nn.Module): Activation function for each block.
         """
         super().__init__()
+        self.save_hyperparameters()
         self.input_shape = input_shape
 
         layers = []
         num_layers = len(channels) - 1
 
         for i in range(num_layers):
-            downsample_timesteps = (
-                timesteps[i + 1] if timesteps and i < len(timesteps) - 1 else None
-            )
+            downsample_timesteps = timesteps[i + 1]
             layers.append(
                 ResidualConvBlock(
                     in_channels=channels[i],
@@ -217,33 +233,14 @@ class FeatureExtractor(nn.Module):
         return self.feature_extractor(x)
 
 
-class FeatureToLatent(nn.Module):
-    def __init__(self, input_shape: tuple, latent_dim: int):
-        """
-        Converts the feature map into a latent vector.
-
-        Parameters:
-        - input_shape (tuple): Shape of the feature map (channels, timesteps).
-        - latent_dim (int): Dimension of the latent vector.
-        """
-        super().__init__()
-        channels, timesteps = input_shape
-        self.flatten = nn.Flatten()
-        self.fc = nn.Linear(channels * timesteps, latent_dim)
-
-    def forward(self, x):
-        x = self.flatten(x)
-        return self.fc(x)
-
-
-class Encoder(nn.Module):
+class Encoder(LightningModule):
     def __init__(
         self,
         input_shape: tuple,
         latent_dim: int,
-        channels: List[int],
+        channels: list[int],
         kernel_size: int = 3,
-        timesteps: List[int] = None,
+        timesteps: list[int] = None,
         activation: nn.Module = nn.GELU(),
     ):
         """
@@ -259,7 +256,11 @@ class Encoder(nn.Module):
         """
         super().__init__()
         self.feature_extractor = FeatureExtractor(
-            input_shape, channels, kernel_size, timesteps, activation
+            input_shape=input_shape,
+            channels=channels,
+            timesteps=timesteps,
+            kernel_size=kernel_size,
+            activation=activation,
         )
 
         # Compute the output shape of the feature extractor for initializing FeatureToLatent
@@ -274,7 +275,7 @@ class Encoder(nn.Module):
         return x
 
 
-class ResidualConvBlock(nn.Module):
+class ResidualConvBlock(LightningModule):
     def __init__(
         self,
         in_channels: int,
@@ -298,13 +299,13 @@ class ResidualConvBlock(nn.Module):
         - activation (nn.Module): Activation function to use.
         """
         super().__init__()
+        self.save_hyperparameters()
         self.conv1 = nn.Conv1d(
             in_channels,
             out_channels,
             kernel_size=kernel_size,
             padding="same",
         )
-        self.activation = activation
         if is_decoder:
             self.reshape_timesteps = nn.Upsample(
                 size=out_timesteps, mode="linear", align_corners=False
@@ -326,37 +327,16 @@ class ResidualConvBlock(nn.Module):
         residual = self.residual_projection(x)
         x = self.conv1(x)
         x = self.batch_norm(x)
-        x = self.activation(x)
+        x = self.hparams.activation(x)
         return x + residual
 
 
-class LatentToFeature(nn.Module):
-    def __init__(self, latent_dim: int, target_shape: tuple):
-        """
-        Converts latent vector into a feature map for the decoder.
-
-        Parameters:
-        - latent_dim (int): Dimension of the latent vector.
-        - target_shape (tuple): Target shape as (channels, timesteps) for the feature map.
-        """
-        super().__init__()
-        self.latent_dim = latent_dim
-        self.target_shape = target_shape
-        self.fc = nn.Linear(latent_dim, target_shape[0] * target_shape[1])
-
-    def forward(self, x):
-        x = self.fc(x)
-        return x.view(
-            x.size(0), *self.target_shape
-        )  # Reshape to (batch_size, channels, timesteps)
-
-
-class FeatureDecoder(nn.Module):
+class FeatureDecoder(LightningModule):
     def __init__(
         self,
-        channels: List[int],
+        channels: list[int],
+        timesteps: list[int],
         kernel_size: int = 3,
-        timesteps: List[int] = None,
         activation: nn.Module = nn.GELU(),
     ):
         """
@@ -373,9 +353,8 @@ class FeatureDecoder(nn.Module):
         num_layers = len(channels) - 1
 
         for i in range(num_layers):
-            out_timesteps = (
-                timesteps[i + 1] if timesteps and i < len(timesteps) - 1 else None
-            )
+            out_timesteps = timesteps[i + 1]
+
             layers.append(
                 ResidualConvBlock(
                     in_channels=channels[i],
@@ -393,13 +372,13 @@ class FeatureDecoder(nn.Module):
         return self.decoder(x)
 
 
-class Decoder(nn.Module):
+class Decoder(LightningModule):
     def __init__(
         self,
         latent_dim: int,
-        channels: List[int],
+        channels: list[int],
+        timesteps: list[int],
         kernel_size: int = 3,
-        timesteps: List[int] = None,
         activation: nn.Module = nn.GELU(),
         output_shape: tuple = None,
     ):
@@ -421,7 +400,10 @@ class Decoder(nn.Module):
             latent_dim, (channels[0], timesteps[0])
         )
         self.feature_decoder = FeatureDecoder(
-            channels, kernel_size, timesteps, activation
+            channels=channels,
+            timesteps=timesteps,
+            kernel_size=kernel_size,
+            activation=activation,
         )
         self.output_shape = output_shape
 
